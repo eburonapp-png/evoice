@@ -56,17 +56,6 @@
       display: flex; align-items: center; background-color: var(--bg-chip);
       padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600;
     }
-    .audio-visualizer { display: flex; gap: 3px; margin-left: 8px; align-items: center; }
-    .audio-visualizer .bar {
-      width: 4px; height: 4px; border-radius: 50%;
-      background-color: var(--accent-active); transition: height 0.1s ease;
-    }
-    .audio-visualizer.active .bar { animation: bounce 0.5s infinite alternate; }
-    .audio-visualizer.active .bar:nth-child(1) { animation-delay: 0.1s; }
-    .audio-visualizer.active .bar:nth-child(2) { animation-delay: 0.3s; }
-    .audio-visualizer.active .bar:nth-child(3) { animation-delay: 0.5s; }
-    .audio-visualizer.active .bar:nth-child(4) { animation-delay: 0.2s; }
-    @keyframes bounce { to { height: 12px; transform: translateY(-4px); } }
 
     .header-right { display: flex; align-items: center; gap: 8px; }
     .connect-btn {
@@ -157,7 +146,20 @@
       border-radius: 24px 24px 0 0; margin-top: 12px;
     }
     .nav-item { background: transparent; border: none; display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 14px; font-weight: 500; padding: 8px; }
-    .nav-item i { font-size: 20px; }
+    .icon-wrapper { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
+    .nav-item i { font-size: 20px; z-index: 1; }
+    .icon-pulse {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background-color: var(--accent-active);
+      transition: width 0.1s ease, height 0.1s ease, opacity 0.2s ease;
+      z-index: 0;
+      pointer-events: none;
+    }
+    @keyframes pulse-anim { 0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.3; } 50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.1; } 100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.3; } }
 
     /* ---------------------------------------------------
        7. Full Page Overlays & Forms

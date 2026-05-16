@@ -259,11 +259,6 @@ When using tools, think silently but speak naturally after receiving results.` }
         <div className="header-left">
           <img src="https://eburon.ai/icon-eburon.svg" alt="Eburon Logo" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
           <span className="ai-name">Eburon AI</span>
-          {volume > 0.01 && connected && (
-            <div className="audio-visualizer active">
-              <div className="bar"></div><div className="bar"></div><div className="bar"></div><div className="bar"></div>
-            </div>
-          )}
         </div>
         <div className="header-right">
           <button 
@@ -333,28 +328,39 @@ When using tools, think silently but speak naturally after receiving results.` }
         </div>
         <nav className="nav-controls">
           <button className="nav-item" onClick={() => setMicState(!micState)} style={{ color: micState ? 'var(--accent-active)' : 'var(--text-muted)' }}>
-             <i className="ph-fill ph-microphone"></i> <span>Mic</span>
-             {micState && clientVolume > 0.01 && (
-               <div className="audio-visualizer active">
-                 <div className="bar"></div><div className="bar"></div><div className="bar"></div><div className="bar"></div>
-               </div>
-             )}
+             <div className="icon-wrapper">
+               <div className="icon-pulse" style={{ 
+                 width: micState ? `${20 + clientVolume * 40}px` : '0px', 
+                 height: micState ? `${20 + clientVolume * 40}px` : '0px',
+                 opacity: micState && clientVolume > 0.01 ? 0.3 : 0
+               }}></div>
+               <i className="ph-fill ph-microphone"></i>
+             </div>
+             <span>Mic</span>
           </button>
           <button className="nav-item" onClick={isWebcamActive ? stopStream : startWebcam} style={{ color: isWebcamActive ? 'var(--accent-active)' : 'var(--text-muted)' }}>
-             <i className="ph-fill ph-video-camera"></i> <span>Camera</span>
-             {isWebcamActive && (
-               <div className="audio-visualizer active">
-                 <div className="bar" style={{animationDuration: '1s'}}></div>
-               </div>
-             )}
+             <div className="icon-wrapper">
+               <div className="icon-pulse" style={{ 
+                 width: isWebcamActive ? `28px` : '0px', 
+                 height: isWebcamActive ? `28px` : '0px',
+                 opacity: isWebcamActive ? 0.3 : 0,
+                 animation: isWebcamActive ? 'pulse-anim 2s infinite' : 'none'
+               }}></div>
+               <i className="ph-fill ph-video-camera"></i>
+             </div>
+             <span>Camera</span>
           </button>
           <button className="nav-item" onClick={isScreenShareActive ? stopStream : startScreenShare} style={{ color: isScreenShareActive ? 'var(--accent-active)' : 'var(--text-muted)' }}>
-             <i className="ph-fill ph-screencast"></i> <span>Share</span>
-             {isScreenShareActive && (
-               <div className="audio-visualizer active">
-                 <div className="bar" style={{animationDuration: '1s'}}></div>
-               </div>
-             )}
+             <div className="icon-wrapper">
+               <div className="icon-pulse" style={{ 
+                 width: isScreenShareActive ? `28px` : '0px', 
+                 height: isScreenShareActive ? `28px` : '0px',
+                 opacity: isScreenShareActive ? 0.3 : 0,
+                 animation: isScreenShareActive ? 'pulse-anim 2s infinite' : 'none'
+               }}></div>
+               <i className="ph-fill ph-screencast"></i>
+             </div>
+             <span>Share</span>
           </button>
         </nav>
       </div>
