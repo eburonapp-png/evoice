@@ -25,6 +25,8 @@ import { AudioStreamer } from '../../lib/audio-streamer';
 import { audioContext } from '../../lib/utils';
 import VolMeterWorket from '../../lib/worklets/vol-meter';
 import { useLogStore, useSettings } from '@/lib/state';
+import { db, auth } from '@/lib/firebase';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export type UseLiveApiResults = {
   client: GenAILiveClient;
@@ -134,6 +136,29 @@ export function useLiveApi({
                    const uiState = await import('../../lib/state');
                    uiState.useUI.getState().setActiveWorkspaceResult(responsePayload);
                    
+               } catch (e: any) {
+                   responsePayload = { error: e.message };
+               }
+           }
+        }
+
+        if (fc.name === 'save_memory') {
+           const { memory, type } = fc.args as any;
+           const user = auth.currentUser;
+           if (!user) {
+               responsePayload = { error: 'No user authenticated. Cannot save memory.' };
+           } else {
+               try {
+                   const userRef = doc(db, 'users', user.uid);
+                   await setDoc(userRef, {
+                       memories: arrayUnion({
+                           content: memory,
+                           type: type || 'personal',
+                           timestamp: new Date().toISOString()
+                       }),
+                       updatedAt: new Date().toISOString()
+                   }, { merge: true });
+                   responsePayload = { status: 'Memory saved successfully' };
                } catch (e: any) {
                    responsePayload = { error: e.message };
                }

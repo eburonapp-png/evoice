@@ -58,6 +58,20 @@
     }
 
     .header-right { display: flex; align-items: center; gap: 8px; }
+    
+    .speaker-visualizer {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 20px;
+    }
+    .speaker-bar {
+      width: 3px;
+      background-color: var(--accent-active);
+      border-radius: 2px;
+      transition: height 0.1s ease;
+    }
+
     .connect-btn {
       display: flex; align-items: center; gap: 6px;
       color: var(--accent-primary-text);

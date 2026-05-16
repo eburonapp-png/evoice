@@ -28,6 +28,26 @@ export const workspaceTools: FunctionCall[] = [
       },
       required: ["url", "method"]
     }
+  },
+  {
+    name: "save_memory",
+    description: "Saves important personal information or context about the user for long-term memory. Use this to remember user names, preferences, interests, or project details.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        memory: {
+          type: "STRING",
+          description: "Clear, concise sentence or two summarizing what to remember. e.g. 'The user is a software engineer from Paris' or 'The user prefers dark mode'."
+        },
+        type: {
+          type: "STRING",
+          description: "Type of memory: 'personal' or 'context'"
+        }
+      },
+      required: ["memory", "type"]
+    }
   }
 ];
 

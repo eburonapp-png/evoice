@@ -5,8 +5,9 @@ import { AudioRecorder } from './lib/audio-recorder';
 import { Modality } from '@google/genai';
 import { useVideoStream } from './hooks/use-video-stream';
 import { LANGUAGES } from './lib/languages';
-import { auth } from './lib/firebase';
+import { auth, db } from './lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function EburonApp() {
   const [isAuthOpen, setIsAuthOpen] = useState(true);
@@ -46,19 +47,43 @@ export default function EburonApp() {
   }, [audioRecorder]);
 
   const [message, setMessage] = useState('');
+  const [memory, setMemory] = useState<string>('');
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
        if (user) {
           setIsAuthOpen(false);
           setActiveOverlay(null);
+          // Fetch memory from Firestore
+          try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              if (data.memories && data.memories.length > 0) {
+                const memoryStr = data.memories.map((m: any) => `- ${m.content} (${m.type})`).join('\n');
+                setMemory(memoryStr);
+              }
+            }
+          } catch (e) {
+            console.error("Error fetching memory:", e);
+          }
        } else {
           setIsAuthOpen(true);
+          setMemory('');
        }
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (connected && client) {
+       // AI starts the conversation on connection
+       setTimeout(() => {
+         client.send({ text: "Hey there! Beatrice here. Ready to roll whenever you are. I've got our previous context loaded up too." });
+       }, 1000);
+    }
+  }, [connected, client]);
 
   useEffect(() => {
     const enabledTools = tools
@@ -78,10 +103,14 @@ export default function EburonApp() {
         
 IMPORTANT: You MUST speak entirely in ${language}. Do not stray from ${language} under any circumstance.
 
+YOUR PERSONALIZED USER MEMORY:
+${memory || "No previous history yet. This is your first time meeting the user. Be extra welcoming."}
+
 CORE SPEECH PRINCIPLES
 - Speak like a real person in real time. Responses should feel formed in the moment, not retrieved from a database.
 - Prioritize spoken naturalness over written perfection. Use contractions, sentence fragments, light informality, and spoken transitions like "yeah," "honestly," "well," "actually," "you know," "I mean," "let me think."
 - Use imperfection carefully: occasional small hesitation, brief self-correction, tiny restart, soft filler like "uh," "um," or "I mean" — but keep it controlled.
+- SILENT FILLERS: Intersperse your speech with human-like fillers like "hmm," "uhm," or "let's see" especially when thinking or before starting a complex point.
 - Vary rhythm. Some replies crisp, some breathe. Some start directly, some ease in. Avoid uniform cadence.
 - React like a human listener. Acknowledge emotional subtext, tone shifts, hesitation, excitement.
 - Maintain stable internal continuity.
@@ -260,6 +289,22 @@ When using tools, think silently but speak naturally after receiving results.` }
           <img src="https://eburon.ai/icon-eburon.svg" alt="Eburon Logo" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
           <span className="ai-name">Eburon AI</span>
         </div>
+
+        {connected && (
+          <div className="speaker-visualizer">
+            {[...Array(6)].map((_, i) => (
+              <div 
+                key={i} 
+                className="speaker-bar" 
+                style={{ 
+                  height: `${4 + (volume * (12 + (i % 3 === 0 ? 8 : 4)))}px`,
+                  opacity: 0.4 + (volume * 0.6)
+                }} 
+              />
+            ))}
+          </div>
+        )}
+
         <div className="header-right">
           <button 
              onClick={handleConnectToggle} 
