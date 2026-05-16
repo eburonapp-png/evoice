@@ -5,9 +5,9 @@ import { AudioRecorder } from './lib/audio-recorder';
 import { Modality } from '@google/genai';
 import { useVideoStream } from './hooks/use-video-stream';
 import { LANGUAGES } from './lib/languages';
-import { auth, db } from './lib/firebase';
+import { auth, db, testConnection, handleFirestoreError, OperationType } from './lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDocFromServer } from 'firebase/firestore';
 
 export default function EburonApp() {
   const [isAuthOpen, setIsAuthOpen] = useState(true);
@@ -51,13 +51,15 @@ export default function EburonApp() {
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    testConnection();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
        if (user) {
           setIsAuthOpen(false);
           setActiveOverlay(null);
           // Fetch memory from Firestore
+          const path = `users/${user.uid}`;
           try {
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            const userDoc = await getDocFromServer(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
               const data = userDoc.data();
               if (data.memories && data.memories.length > 0) {
@@ -66,7 +68,7 @@ export default function EburonApp() {
               }
             }
           } catch (e) {
-            console.error("Error fetching memory:", e);
+            handleFirestoreError(e, OperationType.GET, path);
           }
        } else {
           setIsAuthOpen(true);

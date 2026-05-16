@@ -25,7 +25,7 @@ import { AudioStreamer } from '../../lib/audio-streamer';
 import { audioContext } from '../../lib/utils';
 import VolMeterWorket from '../../lib/worklets/vol-meter';
 import { useLogStore, useSettings } from '@/lib/state';
-import { db, auth } from '@/lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export type UseLiveApiResults = {
@@ -148,6 +148,7 @@ export function useLiveApi({
            if (!user) {
                responsePayload = { error: 'No user authenticated. Cannot save memory.' };
            } else {
+               const path = `users/${user.uid}`;
                try {
                    const userRef = doc(db, 'users', user.uid);
                    await setDoc(userRef, {
@@ -160,7 +161,12 @@ export function useLiveApi({
                    }, { merge: true });
                    responsePayload = { status: 'Memory saved successfully' };
                } catch (e: any) {
-                   responsePayload = { error: e.message };
+                   handleFirestoreError(e, OperationType.WRITE, path);
+                   // Note: handleFirestoreError throws, so this might need careful handling 
+                   // if we want to return a response to the AI.
+                   // However, the guideline says RE-THROW.
+                   // Let's adjust to catch and return the JSON if we want the AI to know.
+                   // Actually, re-throwing is required for the system to diagnose.
                }
            }
         }
