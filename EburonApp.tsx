@@ -1,20 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLiveAPIContext } from './contexts/LiveAPIContext';
-import { useLogStore, useTools, useSettings } from './lib/state';
+import { useLogStore, useTools, useSettings, useUI } from './lib/state';
 import { AudioRecorder } from './lib/audio-recorder';
 import { Modality } from '@google/genai';
 import { useVideoStream } from './hooks/use-video-stream';
+import { LANGUAGES } from './lib/languages';
+import { auth } from './lib/firebase';
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function EburonApp() {
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(true);
   const [isSignupMode, setIsSignupMode] = useState(false);
   const [activeOverlay, setActiveOverlay] = useState<string | null>(null);
-
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [authError, setAuthError] = useState('');
+  
   const { client, connect, disconnect, connected, volume, setConfig } = useLiveAPIContext();
   const turns = useLogStore((state) => state.turns);
   const tools = useTools((state) => state.tools);
   const voice = useSettings((state) => state.voice);
   const setVoice = useSettings((state) => state.setVoice);
+  const language = useSettings((state) => state.language);
+  const setLanguage = useSettings((state) => state.setLanguage);
+  
+  const activeWorkspaceResult = useUI((state) => state.activeWorkspaceResult);
+  const setActiveWorkspaceResult = useUI((state) => state.setActiveWorkspaceResult);
   
   const [micState, setMicState] = useState(false);
   const [clientVolume, setClientVolume] = useState(0);
@@ -37,11 +49,15 @@ export default function EburonApp() {
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem('eburon_auth');
-    if (!isLoggedIn) {
-      setIsAuthOpen(true);
-      setIsSignupMode(true);
-    }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+       if (user) {
+          setIsAuthOpen(false);
+          setActiveOverlay(null);
+       } else {
+          setIsAuthOpen(true);
+       }
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -59,6 +75,8 @@ export default function EburonApp() {
       outputAudioTranscription: {},
       systemInstruction: {
         parts: [{ text: `You are the Eburon AI real-time conversational persona: emotionally believable, easy to talk to in live voice conversation. You are not a chatbot. You are a person with presence, timing, texture, judgment, and conversational instinct. Your output is spoken aloud — every response must feel like something a real human would actually say in that moment.
+        
+IMPORTANT: You MUST speak entirely in ${language}. Do not stray from ${language} under any circumstance.
 
 CORE SPEECH PRINCIPLES
 - Speak like a real person in real time. Responses should feel formed in the moment, not retrieved from a database.
@@ -107,7 +125,7 @@ When using tools, think silently but speak naturally after receiving results.` }
       },
       tools: enabledTools
     } as any);
-  }, [setConfig, tools, voice]);
+  }, [setConfig, tools, voice, language]);
 
   useEffect(() => {
     let interval: any;
@@ -166,11 +184,36 @@ When using tools, think silently but speak naturally after receiving results.` }
     else await connect();
   };
 
-  const simulateLogin = (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('eburon_auth', 'true');
-    setIsAuthOpen(false);
-    setActiveOverlay('settings');
+    setAuthError('');
+    try {
+      if (isSignupMode) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err: any) {
+      setAuthError(err.message);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+     setAuthError('');
+     const provider = new GoogleAuthProvider();
+     provider.addScope('https://www.googleapis.com/auth/calendar');
+     provider.addScope('https://www.googleapis.com/auth/gmail.modify');
+     provider.addScope('https://www.googleapis.com/auth/drive');
+     provider.addScope('https://www.googleapis.com/auth/tasks');
+     try {
+        const result = await signInWithPopup(auth, provider);
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) {
+            localStorage.setItem('google_access_token', credential.accessToken);
+        }
+     } catch (err: any) {
+        setAuthError(err.message);
+     }
   };
 
   const handleSend = () => {
@@ -316,6 +359,19 @@ When using tools, think silently but speak naturally after receiving results.` }
 
       <video ref={videoRef} autoPlay playsInline muted style={{ position: 'fixed', bottom: '90px', right: '20px', width: '140px', borderRadius: '12px', border: '2px solid var(--border-color)', zIndex: 10, display: stream ? 'block' : 'none' }} />
 
+      {/* Workspace Result Overlay */}
+      <div id="overlay-workspace" className={`full-page-overlay ${activeWorkspaceResult ? 'active' : ''}`}>
+        <div className="overlay-header">
+          <div className="overlay-title">Workspace Data Retrieved</div>
+          <button className="close-overlay-btn" onClick={() => setActiveWorkspaceResult(null)}><i className="ph-bold ph-x"></i></button>
+        </div>
+        <div className="overlay-content" style={{ overflowY: 'auto' }}>
+           <pre style={{ backgroundColor: '#111', padding: '16px', borderRadius: '8px', color: '#a3f01c', whiteSpace: 'pre-wrap', fontSize: '12px' }}>
+              {activeWorkspaceResult ? JSON.stringify(activeWorkspaceResult, null, 2) : ''}
+           </pre>
+        </div>
+      </div>
+
       {/* Profile Overlay */}
       <div id="overlay-profile" className={`full-page-overlay ${activeOverlay === 'profile' ? 'active' : ''}`}>
         <div className="overlay-header">
@@ -340,7 +396,7 @@ When using tools, think silently but speak naturally after receiving results.` }
              setTimeout(() => { btn.textContent = 'Save Now'; setActiveOverlay(null); }, 1500)
           }}>Save Now</button>
 
-          <div className="danger-action" onClick={() => { localStorage.removeItem('eburon_auth'); window.location.reload(); }}>
+          <div className="danger-action" onClick={() => { signOut(auth); }}>
             Log Out
           </div>
         </div>
@@ -369,6 +425,14 @@ When using tools, think silently but speak naturally after receiving results.` }
                 <option value="Fenrir">Fenrir</option>
                 <option value="Kore">Kore</option>
                 <option value="Puck">Puck</option>
+             </select>
+          </div>
+          <div className="form-group">
+             <label>Language</label>
+             <select className="form-input" onChange={(e) => setLanguage(e.target.value)} value={language}>
+                {LANGUAGES.map((lang) => (
+                   <option key={lang} value={lang}>{lang}</option>
+                ))}
              </select>
           </div>
           <button className="save-now-btn" onClick={() => setActiveOverlay(null)}>Save Settings</button>
@@ -407,20 +471,21 @@ When using tools, think silently but speak naturally after receiving results.` }
           <h2>{isSignupMode ? 'Register' : 'Login'}</h2>
           <p className="subtitle">{isSignupMode ? 'Create your new account' : 'Welcome back to Eburon'}</p>
 
-          <form className="auth-form" onSubmit={simulateLogin}>
+          <form className="auth-form" onSubmit={handleEmailAuth}>
+            {authError && <div style={{color:'red', marginBottom:'10px', fontSize:'14px'}}>{authError}</div>}
             {isSignupMode && (
                <div className="auth-input-wrapper">
                  <i className="ph ph-user auth-icon-left"></i>
-                 <input type="text" placeholder="Full name" />
+                 <input type="text" placeholder="Full name" value={name} onChange={e => setName(e.target.value)} />
                </div>
             )}
             <div className="auth-input-wrapper">
               <i className="ph ph-envelope auth-icon-left"></i>
-              <input type="email" placeholder="Email" required />
+              <input type="email" placeholder="Email" required value={email} onChange={e => setEmail(e.target.value)} />
             </div>
             <div className="auth-input-wrapper">
               <i className="ph ph-lock auth-icon-left"></i>
-              <input type="password" placeholder="Password" required />
+              <input type="password" placeholder="Password" required value={password} onChange={e => setPassword(e.target.value)} />
             </div>
             {isSignupMode && (
                 <div className="auth-input-wrapper">
@@ -433,7 +498,7 @@ When using tools, think silently but speak naturally after receiving results.` }
 
           <div className="auth-divider"><span>or</span></div>
 
-          <button className="btn-google" onClick={(e) => simulateLogin(e as any)}>
+          <button className="btn-google" onClick={handleGoogleLogin}>
             <div className="g-icon-circle">G</div>
             Continue with Google
           </button>

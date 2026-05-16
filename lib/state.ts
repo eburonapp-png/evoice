@@ -6,13 +6,37 @@ import { create } from 'zustand';
 import { customerSupportTools } from './tools/customer-support';
 import { personalAssistantTools } from './tools/personal-assistant';
 import { navigationSystemTools } from './tools/navigation-system';
+import { FunctionResponseScheduling } from '@google/genai';
+
+export const workspaceTools: FunctionCall[] = [
+  {
+    name: "fetch_google_api",
+    description: "Fetches data from Google APIs. The AI decides the correct Google API endpoint URL based on what the user wants to fetch (e.g., https://www.googleapis.com/calendar/v3/calendars/primary/events for Calendar; https://gmail.googleapis.com/gmail/v1/users/me/messages for Gmail). Only use this to read data.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        url: {
+          type: "STRING",
+          description: "The full URL endpoint to fetch from Google API. e.g. https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=2024-01-01T00:00:00Z"
+        },
+        method: {
+          type: "STRING",
+          description: "HTTP Method, e.g. GET or POST"
+        }
+      },
+      required: ["url", "method"]
+    }
+  }
+];
 
 export type Template = 'customer-support' | 'personal-assistant' | 'navigation-system';
 
 const toolsets: Record<Template, FunctionCall[]> = {
-  'customer-support': customerSupportTools,
-  'personal-assistant': personalAssistantTools,
-  'navigation-system': navigationSystemTools,
+  'customer-support': [...customerSupportTools, ...workspaceTools],
+  'personal-assistant': [...personalAssistantTools, ...workspaceTools],
+  'navigation-system': [...navigationSystemTools, ...workspaceTools],
 };
 
 const systemPrompts: Record<Template, string> = {
@@ -34,16 +58,20 @@ export const useSettings = create<{
   systemPrompt: string;
   model: string;
   voice: string;
+  language: string;
   setSystemPrompt: (prompt: string) => void;
   setModel: (model: string) => void;
   setVoice: (voice: string) => void;
+  setLanguage: (lang: string) => void;
 }>(set => ({
   systemPrompt: `You are a helpful and friendly AI assistant. Be conversational and concise.`,
   model: DEFAULT_LIVE_API_MODEL,
   voice: DEFAULT_VOICE,
+  language: 'English',
   setSystemPrompt: prompt => set({ systemPrompt: prompt }),
   setModel: model => set({ model }),
   setVoice: voice => set({ voice }),
+  setLanguage: lang => set({ language: lang }),
 }));
 
 /**
@@ -52,9 +80,13 @@ export const useSettings = create<{
 export const useUI = create<{
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
+  activeWorkspaceResult: any;
+  setActiveWorkspaceResult: (result: any) => void;
 }>(set => ({
   isSidebarOpen: true,
   toggleSidebar: () => set(state => ({ isSidebarOpen: !state.isSidebarOpen })),
+  activeWorkspaceResult: null,
+  setActiveWorkspaceResult: (result) => set({ activeWorkspaceResult: result })
 }));
 
 /**

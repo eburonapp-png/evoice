@@ -98,7 +98,7 @@ export function useLiveApi({
     client.on('interrupted', stopAudioStreamer);
     client.on('audio', onAudio);
 
-    const onToolCall = (toolCall: LiveServerToolCall) => {
+    const onToolCall = async (toolCall: LiveServerToolCall) => {
       const functionResponses: any[] = [];
 
       for (const fc of toolCall.functionCalls) {
@@ -112,11 +112,39 @@ export function useLiveApi({
           isFinal: true,
         });
 
+        let responsePayload: any = { result: 'ok' };
+        
+        if (fc.name === 'fetch_google_api') {
+           const { url, method } = fc.args as any;
+           const token = localStorage.getItem('google_access_token');
+           if (!token) {
+               responsePayload = { error: 'No Google access token found, please authenticate with Google (Sign in option).' };
+           } else {
+               try {
+                   const res = await fetch(url, {
+                       method: method || 'GET',
+                       headers: { Authorization: `Bearer ${token}` }
+                   });
+                   const dataText = await res.text();
+                   let json = null;
+                   try { json = JSON.parse(dataText); } catch(e) {}
+                   
+                   responsePayload = json || { data: dataText };
+                   
+                   const uiState = await import('../../lib/state');
+                   uiState.useUI.getState().setActiveWorkspaceResult(responsePayload);
+                   
+               } catch (e: any) {
+                   responsePayload = { error: e.message };
+               }
+           }
+        }
+
         // Prepare the response
         functionResponses.push({
           id: fc.id,
           name: fc.name,
-          response: { result: 'ok' }, // simple, hard-coded function response
+          response: responsePayload,
         });
       }
 
