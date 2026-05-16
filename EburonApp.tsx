@@ -78,12 +78,17 @@ export default function EburonApp() {
     return () => unsubscribe();
   }, []);
 
+  const hasStartedRef = useRef(false);
   useEffect(() => {
-    if (connected && client) {
+    if (connected && client && !hasStartedRef.current) {
+       hasStartedRef.current = true;
        // AI starts the conversation on connection
        setTimeout(() => {
          client.send({ text: "Hey there! Beatrice here. Ready to roll whenever you are. I've got our previous context loaded up too." });
        }, 1000);
+    }
+    if (!connected) {
+      hasStartedRef.current = false;
     }
   }, [connected, client]);
 
