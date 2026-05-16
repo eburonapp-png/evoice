@@ -3,6 +3,7 @@ import { useLiveAPIContext } from './contexts/LiveAPIContext';
 import { useLogStore, useTools, useSettings } from './lib/state';
 import { AudioRecorder } from './lib/audio-recorder';
 import { Modality } from '@google/genai';
+import { useVideoStream } from './hooks/use-video-stream';
 
 export default function EburonApp() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -18,6 +19,9 @@ export default function EburonApp() {
   const [micState, setMicState] = useState(false);
   const [clientVolume, setClientVolume] = useState(0);
   const [audioRecorder] = useState(() => new AudioRecorder());
+
+  const { stream, videoRef, isWebcamActive, isScreenShareActive, startWebcam, startScreenShare, stopStream } = useVideoStream();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const onVolume = (vol: number) => {
@@ -106,6 +110,26 @@ When using tools, think silently but speak naturally after receiving results.` }
   }, [setConfig, tools, voice]);
 
   useEffect(() => {
+    let interval: any;
+    if (connected && stream && videoRef.current) {
+      interval = setInterval(() => {
+        const video = videoRef.current;
+        if (!video || video.videoWidth === 0) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+          client.sendRealtimeInput([{ mimeType: 'image/jpeg', data: base64 }]);
+        }
+      }, 1000); // 1 frame per second
+    }
+    return () => clearInterval(interval);
+  }, [connected, stream, client, videoRef]);
+
+  useEffect(() => {
     const onData = (base64: string) => {
       client.sendRealtimeInput([{ mimeType: 'audio/pcm;rate=16000', data: base64 }]);
     };
@@ -116,6 +140,20 @@ When using tools, think silently but speak naturally after receiving results.` }
     }
     return () => { audioRecorder.off('data', onData); };
   }, [connected, micState, client, audioRecorder]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && connected) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = (event.target?.result as string).split(',')[1];
+        client.sendRealtimeInput([{ mimeType: file.type, data: base64 }]);
+        useLogStore.getState().addTurn({ role: 'user', text: `[Sent Image: ${file.name}]`, isFinal: true });
+        client.send({ text: `I have attached an image named ${file.name}. Can you describe it?`});
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     if (chatAreaRef.current) {
@@ -235,7 +273,8 @@ When using tools, think silently but speak naturally after receiving results.` }
       <div className="bottom-dock">
         <div className="input-wrapper">
           <div className="input-bar">
-            <button className="attach-btn" onClick={() => alert('File attachment coming soon!')}><i className="ph ph-paperclip"></i></button>
+            <button className="attach-btn" onClick={() => fileInputRef.current?.click()}><i className="ph ph-paperclip"></i></button>
+            <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleFileUpload} />
             <input 
                type="text" 
                id="message-input" 
@@ -256,10 +295,26 @@ When using tools, think silently but speak naturally after receiving results.` }
                </div>
              )}
           </button>
-          <button className="nav-item" onClick={() => alert('Camera input requires Vision module (coming soon).')}><i className="ph ph-video-camera"></i> <span>Camera</span></button>
-          <button className="nav-item" onClick={() => alert('Screen sharing requires Vision module (coming soon).')}><i className="ph ph-screencast"></i> <span>Share</span></button>
+          <button className="nav-item" onClick={isWebcamActive ? stopStream : startWebcam} style={{ color: isWebcamActive ? 'var(--accent-active)' : 'var(--text-muted)' }}>
+             <i className="ph-fill ph-video-camera"></i> <span>Camera</span>
+             {isWebcamActive && (
+               <div className="audio-visualizer active">
+                 <div className="bar" style={{animationDuration: '1s'}}></div>
+               </div>
+             )}
+          </button>
+          <button className="nav-item" onClick={isScreenShareActive ? stopStream : startScreenShare} style={{ color: isScreenShareActive ? 'var(--accent-active)' : 'var(--text-muted)' }}>
+             <i className="ph-fill ph-screencast"></i> <span>Share</span>
+             {isScreenShareActive && (
+               <div className="audio-visualizer active">
+                 <div className="bar" style={{animationDuration: '1s'}}></div>
+               </div>
+             )}
+          </button>
         </nav>
       </div>
+
+      <video ref={videoRef} autoPlay playsInline muted style={{ position: 'fixed', bottom: '90px', right: '20px', width: '140px', borderRadius: '12px', border: '2px solid var(--border-color)', zIndex: 10, display: stream ? 'block' : 'none' }} />
 
       {/* Profile Overlay */}
       <div id="overlay-profile" className={`full-page-overlay ${activeOverlay === 'profile' ? 'active' : ''}`}>
