@@ -152,7 +152,8 @@ When using tools, think silently but speak naturally after receiving results.` }
       client.sendRealtimeInput([{ mimeType: 'audio/pcm;rate=16000', data: base64 }]);
     };
     if (connected && micState) {
-      audioRecorder.on('data', onData).start();
+      audioRecorder.on('data', onData);
+      audioRecorder.start();
     } else {
       audioRecorder.stop();
     }
@@ -256,6 +257,7 @@ When using tools, think silently but speak naturally after receiving results.` }
       {/* Header */}
       <header className="header">
         <div className="header-left">
+          <img src="https://eburon.ai/icon-eburon.svg" alt="Eburon Logo" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
           <span className="ai-name">Eburon AI</span>
           {volume > 0.01 && connected && (
             <div className="audio-visualizer active">
@@ -461,11 +463,8 @@ When using tools, think silently but speak naturally after receiving results.` }
       <div id="auth-screen" className={`full-page-overlay ${isAuthOpen ? 'active' : ''}`}>
         <div className="auth-glow"></div>
         <div className="auth-card" id="auth-card-inner">
-          <div className="auth-logo-box">
-            <svg viewBox="0 0 24 24" style={{ width: '44px', height: '44px', stroke: '#fff', fill: 'none', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round'}}>
-              <path d="M12 3a5.5 5.5 0 0 0-4.76 8.24L12 21l4.76-9.76A5.5 5.5 0 0 0 12 3z"/>
-              <path d="M12 3l-4.76 9.76A5.5 5.5 0 0 0 12 21a5.5 5.5 0 0 0 4.76-8.24L12 3z"/>
-            </svg>
+          <div className="auth-logo-box" style={{ background: 'transparent' }}>
+            <img src="https://eburon.ai/icon-eburon.svg" alt="Eburon Logo" style={{ width: '60px', height: '60px' }} />
           </div>
 
           <h2>{isSignupMode ? 'Register' : 'Login'}</h2>

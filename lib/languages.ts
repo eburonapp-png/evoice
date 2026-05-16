@@ -1,4 +1,4 @@
-export const LANGUAGES = [
+export const LANGUAGES = Array.from(new Set([
   "Afrikaans", "Albanian", "Amharic", "Arabic", "Armenian", "Assamese", "Aymara", "Azerbaijani",
   "Bambara", "Basque", "Belarusian", "Belgian", "Bengali", "Bhojpuri", "Bosnian", "Bulgarian",
   "Catalan", "Cebuano", "Chichewa", "Chinese (Simplified)", "Chinese (Traditional)", "Corsican", "Croatian", "Czech",
@@ -19,10 +19,10 @@ export const LANGUAGES = [
   // Let's add some more to make it robust ~200
   "Abkhazian", "Afar", "Akan", "Aragonese", "Avaric", "Avestan", "Bashkir", "Bihari",
   "Bislama", "Breton", "Chamorro", "Chechen", "Chuvash", "Cornish", "Cree", "Divehi",
-  "Dzongkha", "Erzya", "Faroese", "Fijian", "Guarani", "Ido", "Inuktitut", "Interlingua",
+  "Dzongkha", "Erzya", "Faroese", "Fijian", "Ido", "Inuktitut", "Interlingua",
   "Interlingue", "Inupiak", "Kalaallisut", "Kanuri", "Kashmiri", "Kikuyu", "Komi", "Kumyk",
   "Kwanyama", "Lezghian", "Limburgish", "Luba-Katanga", "Maldivian", "Manx", "Marshallese",
   "Nauru", "Navajo", "Ndonga", "North Ndebele", "Northern Sami", "Occitan", "Ojibwe", "Old Church Slavonic",
   "Ossetian", "Pali", "Romansh", "Rundi", "Sango", "Sardinian", "Sichuan Yi", "South Ndebele", "Swati",
   "Tahitian", "Tibetan", "Tonga", "Tswana", "Venda", "Volapük", "Walloon", "Wolof", "Zhuang"
-];
+]));

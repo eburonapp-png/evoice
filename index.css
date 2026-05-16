@@ -202,7 +202,8 @@
     /* ---------------------------------------------------
        8. Authentication Screen (Dark Lime Theme)
     --------------------------------------------------- */
-    #auth-screen { z-index: 999; justify-content: center; align-items: center; padding: 20px; position: absolute; }
+    #auth-screen { z-index: 999; align-items: center; padding: 20px; position: absolute; overflow-y: auto; overflow-x: hidden; }
+    #auth-card-inner { margin: auto; }
     .auth-glow {
       position: absolute; top: -50px; left: 50%; transform: translateX(-50%); width: 300px; height: 300px;
       background: radial-gradient(circle, rgba(203, 251, 69, 0.15) 0%, rgba(0,0,0,0) 70%); pointer-events: none;

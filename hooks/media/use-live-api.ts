@@ -165,6 +165,57 @@ export function useLiveApi({
       client.sendToolResponse({ functionResponses: functionResponses });
     };
 
+    const handleInputTranscription = (text: string, isFinal: boolean) => {
+      const { addTurn, updateLastTurn, turns } = useLogStore.getState();
+      const last = turns[turns.length - 1];
+      if (last && last.role === 'user' && !last.isFinal) {
+        updateLastTurn({ text: last.text + text, isFinal });
+      } else {
+        addTurn({ role: 'user', text, isFinal });
+      }
+    };
+
+    const handleContent = (serverContent: LiveServerContent) => {
+      const text =
+        serverContent.modelTurn?.parts
+          ?.map((p: any) => p.text)
+          .filter(Boolean)
+          .join(' ') ?? '';
+
+      if (!text) return;
+
+      const { addTurn, updateLastTurn, turns } = useLogStore.getState();
+      const last = turns.at(-1);
+
+      if (last?.role === 'agent' && !last.isFinal) {
+        updateLastTurn({ text: last.text + text });
+      } else {
+        addTurn({ role: 'agent', text, isFinal: false });
+      }
+    };
+
+    const handleTurnComplete = () => {
+      const { updateLastTurn, turns } = useLogStore.getState();
+      const last = turns.at(-1);
+      if (last && !last.isFinal) {
+        updateLastTurn({ isFinal: true });
+      }
+    };
+
+    const handleOutputTranscription = (text: string, isFinal: boolean) => {
+      const { addTurn, updateLastTurn, turns } = useLogStore.getState();
+      const last = turns[turns.length - 1];
+      if (last && last.role === 'agent' && !last.isFinal) {
+        updateLastTurn({ text: last.text + text, isFinal });
+      } else {
+        addTurn({ role: 'agent', text, isFinal });
+      }
+    };
+
+    client.on('inputTranscription', handleInputTranscription);
+    client.on('outputTranscription', handleOutputTranscription);
+    client.on('content', handleContent);
+    client.on('turncomplete', handleTurnComplete);
     client.on('toolcall', onToolCall);
 
     return () => {
@@ -174,6 +225,10 @@ export function useLiveApi({
       client.off('interrupted', stopAudioStreamer);
       client.off('audio', onAudio);
       client.off('toolcall', onToolCall);
+      client.off('inputTranscription', handleInputTranscription);
+      client.off('outputTranscription', handleOutputTranscription);
+      client.off('content', handleContent);
+      client.off('turncomplete', handleTurnComplete);
     };
   }, [client]);
 
