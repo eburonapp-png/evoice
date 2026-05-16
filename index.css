@@ -56,12 +56,16 @@
       display: flex; align-items: center; background-color: var(--bg-chip);
       padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600;
     }
-    #audio-visualizer { display: flex; gap: 3px; margin-left: 8px; }
-    #audio-visualizer .bar {
+    .audio-visualizer { display: flex; gap: 3px; margin-left: 8px; align-items: center; }
+    .audio-visualizer .bar {
       width: 4px; height: 4px; border-radius: 50%;
       background-color: var(--accent-active); transition: height 0.1s ease;
     }
-    #audio-visualizer.active .bar { animation: bounce 0.5s infinite alternate; }
+    .audio-visualizer.active .bar { animation: bounce 0.5s infinite alternate; }
+    .audio-visualizer.active .bar:nth-child(1) { animation-delay: 0.1s; }
+    .audio-visualizer.active .bar:nth-child(2) { animation-delay: 0.3s; }
+    .audio-visualizer.active .bar:nth-child(3) { animation-delay: 0.5s; }
+    .audio-visualizer.active .bar:nth-child(4) { animation-delay: 0.2s; }
     @keyframes bounce { to { height: 12px; transform: translateY(-4px); } }
 
     .header-right { display: flex; align-items: center; gap: 8px; }

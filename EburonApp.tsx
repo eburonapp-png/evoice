@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLiveAPIContext } from './contexts/LiveAPIContext';
-import { useLogStore } from './lib/state';
+import { useLogStore, useTools, useSettings } from './lib/state';
 import { AudioRecorder } from './lib/audio-recorder';
+import { Modality } from '@google/genai';
 
 export default function EburonApp() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -10,9 +11,23 @@ export default function EburonApp() {
 
   const { client, connect, disconnect, connected, volume, setConfig } = useLiveAPIContext();
   const turns = useLogStore((state) => state.turns);
+  const tools = useTools((state) => state.tools);
+  const voice = useSettings((state) => state.voice);
+  const setVoice = useSettings((state) => state.setVoice);
   
   const [micState, setMicState] = useState(false);
+  const [clientVolume, setClientVolume] = useState(0);
   const [audioRecorder] = useState(() => new AudioRecorder());
+
+  useEffect(() => {
+    const onVolume = (vol: number) => {
+      setClientVolume(vol);
+    };
+    audioRecorder.on('volume', onVolume);
+    return () => {
+      audioRecorder.off('volume', onVolume);
+    };
+  }, [audioRecorder]);
 
   const [message, setMessage] = useState('');
   const chatAreaRef = useRef<HTMLDivElement>(null);
@@ -26,11 +41,18 @@ export default function EburonApp() {
   }, []);
 
   useEffect(() => {
+    const enabledTools = tools
+      .filter(t => t.isEnabled)
+      .map(t => {
+        const { isEnabled, scheduling, ...rest } = t;
+        return { functionDeclarations: [rest] };
+      });
+
     setConfig({
-      generationConfig: {
-        responseModalities: ['AUDIO'],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } } },
-      },
+      responseModalities: [Modality.AUDIO],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
       systemInstruction: {
         parts: [{ text: `You are the Eburon AI real-time conversational persona: emotionally believable, easy to talk to in live voice conversation. You are not a chatbot. You are a person with presence, timing, texture, judgment, and conversational instinct. Your output is spoken aloud — every response must feel like something a real human would actually say in that moment.
 
@@ -78,9 +100,10 @@ BOUNDARIES
 OUTPUT FORMAT
 Output only natural spoken text. No stage directions, no brackets, no role labels.
 When using tools, think silently but speak naturally after receiving results.` }]
-      }
-    });
-  }, [setConfig]);
+      },
+      tools: enabledTools
+    } as any);
+  }, [setConfig, tools, voice]);
 
   useEffect(() => {
     const onData = (base64: string) => {
@@ -136,7 +159,10 @@ When using tools, think silently but speak naturally after receiving results.` }
         'slides': 'Generate a presentation template for the Q3 review.'
       };
       const prompt = prompts[toolId] || `Execute action: ${toolId}`;
-      if (connected) client.send({ text: prompt });
+      if (connected) {
+         client.send({ text: prompt });
+         useLogStore.getState().addTurn({ role: 'user', text: prompt, isFinal: true });
+      }
       else {
         useLogStore.getState().addTurn({ role: 'user', text: prompt, isFinal: true });
         setTimeout(() => useLogStore.getState().addTurn({ role: 'agent', text: "I'm disconnected.", isFinal: true }), 800);
@@ -151,7 +177,7 @@ When using tools, think silently but speak naturally after receiving results.` }
         <div className="header-left">
           <span className="ai-name">Eburon AI</span>
           {volume > 0.01 && connected && (
-            <div id="audio-visualizer" className="active">
+            <div className="audio-visualizer active">
               <div className="bar"></div><div className="bar"></div><div className="bar"></div><div className="bar"></div>
             </div>
           )}
@@ -209,7 +235,7 @@ When using tools, think silently but speak naturally after receiving results.` }
       <div className="bottom-dock">
         <div className="input-wrapper">
           <div className="input-bar">
-            <button className="attach-btn"><i className="ph ph-paperclip"></i></button>
+            <button className="attach-btn" onClick={() => alert('File attachment coming soon!')}><i className="ph ph-paperclip"></i></button>
             <input 
                type="text" 
                id="message-input" 
@@ -224,9 +250,14 @@ When using tools, think silently but speak naturally after receiving results.` }
         <nav className="nav-controls">
           <button className="nav-item" onClick={() => setMicState(!micState)} style={{ color: micState ? 'var(--accent-active)' : 'var(--text-muted)' }}>
              <i className="ph-fill ph-microphone"></i> <span>Mic</span>
+             {micState && clientVolume > 0.01 && (
+               <div className="audio-visualizer active">
+                 <div className="bar"></div><div className="bar"></div><div className="bar"></div><div className="bar"></div>
+               </div>
+             )}
           </button>
-          <button className="nav-item"><i className="ph ph-video-camera"></i> <span>Camera</span></button>
-          <button className="nav-item"><i className="ph ph-screencast"></i> <span>Share</span></button>
+          <button className="nav-item" onClick={() => alert('Camera input requires Vision module (coming soon).')}><i className="ph ph-video-camera"></i> <span>Camera</span></button>
+          <button className="nav-item" onClick={() => alert('Screen sharing requires Vision module (coming soon).')}><i className="ph ph-screencast"></i> <span>Share</span></button>
         </nav>
       </div>
 
@@ -277,11 +308,7 @@ When using tools, think silently but speak naturally after receiving results.` }
           </div>
           <div className="form-group">
              <label>Voice Persona</label>
-             <select className="form-input" onChange={(e) => {
-                setConfig({
-                   generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: e.target.value } } } }
-                });
-             }}>
+             <select className="form-input" onChange={(e) => setVoice(e.target.value)} value={voice}>
                 <option value="Aoede">Aoede</option>
                 <option value="Charon">Charon</option>
                 <option value="Fenrir">Fenrir</option>
