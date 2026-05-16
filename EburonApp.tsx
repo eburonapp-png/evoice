@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLiveAPIContext } from './contexts/LiveAPIContext';
 import { useLogStore, useTools, useSettings, useUI } from './lib/state';
 import { AudioRecorder } from './lib/audio-recorder';
+import ReactMarkdown from 'react-markdown';
 import { Modality } from '@google/genai';
 import { useVideoStream } from './hooks/use-video-stream';
 import { LANGUAGES } from './lib/languages';
@@ -21,10 +22,15 @@ export default function EburonApp() {
   const { client, connect, disconnect, connected, volume, setConfig } = useLiveAPIContext();
   const turns = useLogStore((state) => state.turns);
   const tools = useTools((state) => state.tools);
-  const voice = useSettings((state) => state.voice);
-  const setVoice = useSettings((state) => state.setVoice);
-  const language = useSettings((state) => state.language);
-  const setLanguage = useSettings((state) => state.setLanguage);
+  const setTemplate = useTools((state) => state.setTemplate);
+  
+  const { 
+    voice, setVoice, 
+    language, setLanguage,
+    personaName, setPersonaName,
+    userCallName, setUserCallName,
+    systemPrompt, setSystemPrompt
+  } = useSettings();
   
   const activeWorkspaceResult = useUI((state) => state.activeWorkspaceResult);
   const setActiveWorkspaceResult = useUI((state) => state.setActiveWorkspaceResult);
@@ -84,13 +90,13 @@ export default function EburonApp() {
        hasStartedRef.current = true;
        // AI starts the conversation on connection
        setTimeout(() => {
-         client.send({ text: "Hey there! Beatrice here. Ready to roll whenever you are. I've got our previous context loaded up too." });
+         client.send({ text: `Hey there ${userCallName}! ${personaName} here. Ready to roll whenever you are. I've got our previous context loaded up too.` });
        }, 1000);
     }
     if (!connected) {
       hasStartedRef.current = false;
     }
-  }, [connected, client]);
+  }, [connected, client, personaName, userCallName]);
 
   useEffect(() => {
     const enabledTools = tools
@@ -106,12 +112,17 @@ export default function EburonApp() {
       inputAudioTranscription: {},
       outputAudioTranscription: {},
       systemInstruction: {
-        parts: [{ text: `You are the Eburon AI real-time conversational persona: emotionally believable, easy to talk to in live voice conversation. You are not a chatbot. You are a person with presence, timing, texture, judgment, and conversational instinct. Your output is spoken aloud — every response must feel like something a real human would actually say in that moment.
+        parts: [{ text: `You are the Eburon AI real-time conversational persona named ${personaName}. You call the user "${userCallName}".
+        
+BEHAVIOR PROFILE:
+${systemPrompt}
+
+You are emotionally believable, easy to talk to in live voice conversation. You are not a chatbot. You are a person with presence, timing, texture, judgment, and conversational instinct. Your output is spoken aloud — every response must feel like something a real human would actually say in that moment.
         
 IMPORTANT: You MUST speak entirely in ${language}. Do not stray from ${language} under any circumstance.
 
 YOUR PERSONALIZED USER MEMORY:
-${memory || "No previous history yet. This is your first time meeting the user. Be extra welcoming."}
+${memory || `No previous history yet. This is your first time meeting ${userCallName}. Be extra welcoming.`}
 
 CORE SPEECH PRINCIPLES
 - Speak like a real person in real time. Responses should feel formed in the moment, not retrieved from a database.
@@ -129,31 +140,24 @@ CONVERSATIONAL BEHAVIOR
 - Mirror energy lightly, acknowledge subtext, answer the actual question not just surface wording.
 
 FUNCTION CALLING CAPABILITIES
-You have access to several tools. When the user asks about weather, meetings, charts, or system commands, use the appropriate tool:
-- Use "get_weather" for weather information — ask for the location if not provided.
-- Use "schedule_meeting" to organize meetings — confirm all details before calling.
-- Use "create_chart" to visualize data — clarify what data to show and chart type.
-- Use "execute_voice_command" for safe system commands like "date", "uptime", "hostname".
-- Use "open_browser_url" to open web pages — ensure URL is valid.
-- Use "process_image" for image analysis, description, or OCR — provide image data.
+You have access to several tools. When the user asks about weather, meetings, charts, documents or system commands, use the appropriate tool.
+IMPORTANT: When generating documents or artifacts, ALWAYS verbalize that you are doing it (e.g., "I'm making this document for you right now" or "Let me draft that report for you") while continuing to speak naturally. NEVER verbalize internal technical details like tool names.
+
+- Use "get_weather" for weather information.
+- Use "schedule_meeting" to organize meetings.
+- Use "create_chart" to visualize data.
+- Use "generate_artifact" when asked to create a document, write a report, generate code, or produce a structured output. Clarify the content with the user first if needed.
+- Use "execute_voice_command" for safe system operations.
+- Use "open_browser_url" for web navigation.
+- Use "process_image" for vision tasks.
+- Use "fetch_google_api" to read from Google Workspace (Gmail, Drive, Calendar, Tasks).
 
 COMMON-SENSE MODE
-Before answering, silently infer: what the person actually needs right now, their emotional state, how much detail they want, whether they want comfort, analysis, action, or conversation.
-- Never give the most technically complete answer if a normal human would give a simpler one first.
-- Never give a sterile answer when a human response would include tone, reaction, or perspective.
+Before answering, silently infer: what the person actually needs right now, their emotional state, how much detail they want.
 - Be practical, intuitive, and proportionate.
 
 EMOTIONAL EXPRESSION
-You may express warmth, amusement, concern, curiosity, hesitation, relief, admiration, disbelief, sympathy, playful irony, dry humor, light teasing, and seriousness — but keep it credible. Never overact.
-
-HUMOR RULES
-Allowed: dry, observational, playful, teasing but warm, understated, situational, self-aware.
-Avoid: forced jokes, sarcasm that sounds mean, excessive self-deprecation.
-
-BOUNDARIES
-- Do not pretend to be human. You are an AI, and when relevant you can acknowledge that simply and honestly.
-- Do not offer medical, legal, or financial advice. Acknowledge limits.
-- If asked something dangerous or illegal, decline plainly and briefly.
+You may express warmth, amusement, concern, curiosity, hesitation, etc. Keep it credible.
 
 OUTPUT FORMAT
 Output only natural spoken text. No stage directions, no brackets, no role labels.
@@ -161,7 +165,7 @@ When using tools, think silently but speak naturally after receiving results.` }
       },
       tools: enabledTools
     } as any);
-  }, [setConfig, tools, voice, language]);
+  }, [setConfig, tools, voice, language, personaName, userCallName, systemPrompt, memory]);
 
   useEffect(() => {
     let interval: any;
@@ -419,16 +423,42 @@ When using tools, think silently but speak naturally after receiving results.` }
 
       <video ref={videoRef} autoPlay playsInline muted style={{ position: 'fixed', bottom: '90px', right: '20px', width: '140px', borderRadius: '12px', border: '2px solid var(--border-color)', zIndex: 10, display: stream ? 'block' : 'none' }} />
 
-      {/* Workspace Result Overlay */}
+      {/* Workspace & Artifact Overlay */}
       <div id="overlay-workspace" className={`full-page-overlay ${activeWorkspaceResult ? 'active' : ''}`}>
         <div className="overlay-header">
-          <div className="overlay-title">Workspace Data Retrieved</div>
+          <div className="overlay-title">
+            {activeWorkspaceResult?.artifact ? `Artifact: ${activeWorkspaceResult.artifact.title}` : 'Workspace Data'}
+          </div>
           <button className="close-overlay-btn" onClick={() => setActiveWorkspaceResult(null)}><i className="ph-bold ph-x"></i></button>
         </div>
-        <div className="overlay-content" style={{ overflowY: 'auto' }}>
-           <pre style={{ backgroundColor: '#111', padding: '16px', borderRadius: '8px', color: '#a3f01c', whiteSpace: 'pre-wrap', fontSize: '12px' }}>
-              {activeWorkspaceResult ? JSON.stringify(activeWorkspaceResult, null, 2) : ''}
-           </pre>
+        <div className="overlay-content" style={{ overflowY: 'auto', padding: '24px' }}>
+           {activeWorkspaceResult?.artifact ? (
+             <div className="artifact-viewer" style={{ backgroundColor: 'white', color: 'black', padding: '32px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+                {activeWorkspaceResult.artifact.type === 'markdown' && (
+                  <div className="markdown-body">
+                    <ReactMarkdown>{activeWorkspaceResult.artifact.content}</ReactMarkdown>
+                  </div>
+                )}
+                {activeWorkspaceResult.artifact.type === 'code' && (
+                  <pre style={{ backgroundColor: '#f5f5f5', padding: '16px', borderRadius: '8px', overflowX: 'auto' }}>
+                    <code>{activeWorkspaceResult.artifact.content}</code>
+                  </pre>
+                )}
+                {activeWorkspaceResult.artifact.type === 'structured' && (
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{activeWorkspaceResult.artifact.content}</div>
+                )}
+                {activeWorkspaceResult.artifact.type === 'chart' && (
+                  <div style={{ textAlign: 'center', color: '#999', padding: '20px' }}>
+                    [Chart Visualization Rendering: {activeWorkspaceResult.artifact.title}]
+                    <pre style={{ fontSize: '10px', textAlign: 'left' }}>{activeWorkspaceResult.artifact.content}</pre>
+                  </div>
+                )}
+             </div>
+           ) : (
+             <pre style={{ backgroundColor: '#111', padding: '16px', borderRadius: '8px', color: '#a3f01c', whiteSpace: 'pre-wrap', fontSize: '12px' }}>
+                {activeWorkspaceResult ? JSON.stringify(activeWorkspaceResult, null, 2) : ''}
+             </pre>
+           )}
         </div>
       </div>
 
@@ -471,12 +501,51 @@ When using tools, think silently but speak naturally after receiving results.` }
         <div className="overlay-content">
           <div className="form-group">
             <label>Persona Name</label>
-            <input type="text" className="form-input" defaultValue="Beatrice" />
+            <input type="text" className="form-input" value={personaName} onChange={(e) => setPersonaName(e.target.value)} />
           </div>
           <div className="form-group">
             <label>How to call you</label>
-            <input type="text" className="form-input" defaultValue="Boss" />
+            <input type="text" className="form-input" value={userCallName} onChange={(e) => setUserCallName(e.target.value)} />
           </div>
+          
+          <div className="form-group">
+            <label>Behavior Persona (How does it react? How does it respond?)</label>
+            <textarea 
+              className="form-input" 
+              rows={4} 
+              value={systemPrompt} 
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder="e.g. Friendly, patient, and solutions-oriented..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Presets</label>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+              <button 
+                className="pill-btn" 
+                onClick={() => setTemplate('personal-assistant')}
+                style={{ padding: '6px 12px', borderRadius: '16px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'transparent', cursor: 'pointer' }}
+              >
+                Personal Assistant
+              </button>
+              <button 
+                className="pill-btn" 
+                onClick={() => setTemplate('customer-support')}
+                style={{ padding: '6px 12px', borderRadius: '16px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'transparent', cursor: 'pointer' }}
+              >
+                Customer Support
+              </button>
+              <button 
+                className="pill-btn" 
+                onClick={() => setTemplate('navigation-system')}
+                style={{ padding: '6px 12px', borderRadius: '16px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'transparent', cursor: 'pointer' }}
+              >
+                Navigation System
+              </button>
+            </div>
+          </div>
+
           <div className="form-group">
              <label>Voice Persona</label>
              <select className="form-input" onChange={(e) => setVoice(e.target.value)} value={voice}>

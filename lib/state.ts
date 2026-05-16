@@ -48,6 +48,34 @@ export const workspaceTools: FunctionCall[] = [
       },
       required: ["memory", "type"]
     }
+  },
+  {
+    name: "generate_artifact",
+    description: "Generates a visual document or data artifact (like a report, code snippet, chart, or structured document) to be displayed to the user. Use this when the user asks to create a document, write code, or generate a detailed report.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        title: {
+          type: "STRING",
+          description: "The title of the artifact"
+        },
+        type: {
+          type: "STRING",
+          description: "The type of artifact: 'markdown', 'code', 'chart', 'structured'"
+        },
+        content: {
+          type: "STRING",
+          description: "The actual content of the artifact (Markdown string, code, or JSON data for charts)"
+        },
+        language: {
+          type: "STRING",
+          description: "If type is 'code', the programming language"
+        }
+      },
+      required: ["title", "type", "content"]
+    }
   }
 ];
 
@@ -60,9 +88,9 @@ const toolsets: Record<Template, FunctionCall[]> = {
 };
 
 const systemPrompts: Record<Template, string> = {
-  'customer-support': 'You are a helpful and friendly customer support agent. Be conversational and concise.',
-  'personal-assistant': 'You are a helpful and friendly personal assistant. Be proactive and efficient.',
-  'navigation-system': 'You are a helpful and friendly navigation assistant. Provide clear and accurate directions.',
+  'customer-support': 'How does it react? Friendly, patient, and solutions-oriented. How does it respond? Concisely, with clear steps and empathy for customer frustrations.',
+  'personal-assistant': 'How does it react? Proactive, highly organized, and intuitive. How does it respond? With efficiency, anticipating needs and managing complexity with ease.',
+  'navigation-system': 'How does it react? Precise, calm, and safety-conscious. How does it respond? Giving crystal clear directions and real-time situational awareness.',
 };
 import { DEFAULT_LIVE_API_MODEL, DEFAULT_VOICE } from './constants';
 import {
@@ -76,19 +104,27 @@ import {
  */
 export const useSettings = create<{
   systemPrompt: string;
+  personaName: string;
+  userCallName: string;
   model: string;
   voice: string;
   language: string;
   setSystemPrompt: (prompt: string) => void;
+  setPersonaName: (name: string) => void;
+  setUserCallName: (name: string) => void;
   setModel: (model: string) => void;
   setVoice: (voice: string) => void;
   setLanguage: (lang: string) => void;
 }>(set => ({
-  systemPrompt: `You are a helpful and friendly AI assistant. Be conversational and concise.`,
+  systemPrompt: `How does it react? Emotionally believable, easy to talk to in live voice conversation. How does it respond? Like a person with presence, timing, texture, judgment, and conversational instinct.`,
+  personaName: 'Beatrice',
+  userCallName: 'Boss',
   model: DEFAULT_LIVE_API_MODEL,
   voice: DEFAULT_VOICE,
   language: 'English',
   setSystemPrompt: prompt => set({ systemPrompt: prompt }),
+  setPersonaName: name => set({ personaName: name }),
+  setUserCallName: name => set({ userCallName: name }),
   setModel: model => set({ model }),
   setVoice: voice => set({ voice }),
   setLanguage: lang => set({ language: lang }),

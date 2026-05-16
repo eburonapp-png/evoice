@@ -171,6 +171,15 @@ export function useLiveApi({
            }
         }
 
+        if (fc.name === 'generate_artifact') {
+           const { title, type, content, language } = fc.args as any;
+           responsePayload = { status: 'Artifact generated successfully', title };
+           const uiState = await import('../../lib/state');
+           uiState.useUI.getState().setActiveWorkspaceResult({
+              artifact: { title, type, content, language }
+           });
+        }
+
         // Prepare the response
         functionResponses.push({
           id: fc.id,
