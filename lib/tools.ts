@@ -142,20 +142,7 @@ export const AVAILABLE_TOOLS: FunctionCall[] = [
     isEnabled: true,
     scheduling: FunctionResponseScheduling.INTERRUPT,
   },
-  {
-    name: 'run_google_workspace_action',
-    description: 'Executes Google Workspace actions (Docs, Sheets, Calendar, Gmail, Drive).',
-    parameters: { 
-      type: 'OBJECT', 
-      properties: { 
-        action: { type: 'STRING', enum: ['create_doc', 'append_sheet_row', 'read_sheet_range', 'create_calendar_event', 'send_gmail_email'] },
-        params: { type: 'OBJECT', description: 'Action specific parameters (e.g., email address, message body, event details)' }
-      }, 
-      required: ['action'] 
-    },
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-  },
+
   {
     name: 'google_search',
     description: 'Searches the web via Google Custom Search API.',

@@ -25,7 +25,7 @@ import { AudioStreamer } from '../../lib/audio-streamer';
 import { audioContext } from '../../lib/utils';
 import VolMeterWorket from '../../lib/worklets/vol-meter';
 import { useLogStore, useSettings } from '@/lib/state';
-import { db, auth, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { db, auth, handleFirestoreError, OperationType, getAccessToken } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export type UseLiveApiResults = {
@@ -117,15 +117,19 @@ export function useLiveApi({
         let responsePayload: any = { result: 'ok' };
         
         if (fc.name === 'fetch_google_api') {
-           const { url, method } = fc.args as any;
-           const token = localStorage.getItem('google_access_token');
+           const { url, method, body } = fc.args as any;
+           const token = await getAccessToken();
            if (!token) {
                responsePayload = { error: 'No Google access token found, please authenticate with Google (Sign in option).' };
            } else {
                try {
                    const res = await fetch(url, {
                        method: method || 'GET',
-                       headers: { Authorization: `Bearer ${token}` }
+                       headers: { 
+                          Authorization: `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                       },
+                       body: body ? JSON.stringify(body) : undefined
                    });
                    const dataText = await res.text();
                    let json = null;
@@ -162,11 +166,6 @@ export function useLiveApi({
                    responsePayload = { status: 'Memory saved successfully' };
                } catch (e: any) {
                    handleFirestoreError(e, OperationType.WRITE, path);
-                   // Note: handleFirestoreError throws, so this might need careful handling 
-                   // if we want to return a response to the AI.
-                   // However, the guideline says RE-THROW.
-                   // Let's adjust to catch and return the JSON if we want the AI to know.
-                   // Actually, re-throwing is required for the system to diagnose.
                }
            }
         }
@@ -182,102 +181,30 @@ export function useLiveApi({
            responsePayload = { datetime: new Date().toISOString(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };
         }
 
-        if (fc.name === 'calculate') {
-           const { expression } = fc.args as any;
-           try {
-              // Note: in a real app use a safe evaluator, but this is a mock representation
-              const result = eval(expression);
-              responsePayload = { result };
-           } catch {
-              responsePayload = { error: 'Invalid expression' };
-           }
-        }
-
         if (fc.name === 'open_browser_url') {
            const { url } = fc.args as any;
            window.open(url, '_blank');
            responsePayload = { status: `Opened ${url} in a new tab` };
         }
 
-        if (fc.name === 'create_html_document' || fc.name === 'create_json_file') {
-           const { title, content } = fc.args as any;
-           const type = fc.name === 'create_html_document' ? 'html' : 'json';
-           responsePayload = { status: `${type.toUpperCase()} artifact generated successfully`, title };
-           const uiState = await import('../../lib/state');
-           uiState.useUI.getState().setActiveWorkspaceResult({
-              artifact: { title, type, content, language: type }
-           });
-        }
-
-        if (fc.name === 'run_google_workspace_action') {
-           const { action, params } = fc.args as any;
-           responsePayload = { status: `Simulated action ${action}`, params };
-        }
-
-        if (fc.name === 'google_search') {
-           const { query } = fc.args as any;
-           responsePayload = { results: [`Simulated search results for: ${query}`] };
-        }
-
-        if (fc.name === 'search_places') {
-           const { query } = fc.args as any;
-           responsePayload = { results: [`Simulated place results for: ${query}`] };
-        }
-
-        if (fc.name === 'save_memory') {
-           const { category, content } = fc.args as any;
-           responsePayload = { status: 'Memory saved', category, content };
-        }
-
-        if (fc.name === 'generate_artifact' || fc.name === 'create_markdown_document') {
-           const { title, type, content, language } = fc.args as any;
-           const artifactType = type || (fc.name === 'create_markdown_document' ? 'markdown' : 'structured');
-           responsePayload = { status: 'Artifact generated successfully', title };
-           const uiState = await import('../../lib/state');
-           uiState.useUI.getState().setActiveWorkspaceResult({
-              artifact: { title, type: artifactType, content, language }
-           });
-        }
-
-        if (fc.name === 'save_note') {
-           const { title, content } = fc.args as any;
-           // Local placeholder for now, could use backend
-           responsePayload = { status: 'Note saved successfully' };
-           console.log('Saving Note:', title, content);
-        }
-
-        if (fc.name === 'create_chart_spec') {
-           const { title, type, data } = fc.args as any;
-           responsePayload = { status: 'Chart specification created' };
-           const uiState = await import('../../lib/state');
-           uiState.useUI.getState().setActiveWorkspaceResult({
-              artifact: { title, type: 'chart', content: JSON.stringify(data) }
-           });
-        }
-
-        if (fc.name === 'send_whatsapp_message') {
-           const { to, message } = fc.args as any;
-           try {
-              const { apiClient } = await import('../../lib/api-client');
-              // This is a placeholder since WhatsApp proxy requires token/auth
-              responsePayload = { status: 'WhatsApp message sent (simulated)', to };
-           } catch (e: any) {
-              responsePayload = { error: e.message };
+        if (fc.name === 'create_html_document' || fc.name === 'create_json_file' || fc.name === 'generate_artifact' || fc.name === 'create_markdown_document' || fc.name === 'create_chart_spec') {
+           const { title, type, content, language, data } = fc.args as any;
+           let actualType = type;
+           let actualContent = content;
+           if (fc.name === 'create_html_document') actualType = 'html';
+           if (fc.name === 'create_json_file') actualType = 'json';
+           if (fc.name === 'create_markdown_document') actualType = 'markdown';
+           if (fc.name === 'create_chart_spec') {
+               actualType = 'chart';
+               actualContent = JSON.stringify(data);
            }
-        }
-
-        if (fc.name === 'execute_safe_command') {
-            const { command } = fc.args as any;
-            // Simulated safe commands
-            const results: Record<string, string> = {
-                'date': new Date().toString(),
-                'uptime': '12:34:56 up 2 days, 4:20',
-                'hostname': 'eburon-ai-node-01',
-                'pwd': '/home/eburon/workspace',
-                'whoami': 'eburon-agent',
-                'ls': 'artifacts/ notes/ project.md readme.md'
-            };
-            responsePayload = { output: results[command] || 'Command not found' };
+           if (!actualType) actualType = 'structured';
+           
+           responsePayload = { status: `${actualType.toUpperCase()} artifact generated successfully`, title };
+           const uiState = await import('../../lib/state');
+           uiState.useUI.getState().setActiveWorkspaceResult({
+              artifact: { title, type: actualType, content: actualContent, language }
+           });
         }
 
         if (fc.name === 'get_user_location') {

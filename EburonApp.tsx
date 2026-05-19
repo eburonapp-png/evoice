@@ -128,28 +128,30 @@ export default function EburonApp() {
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-       if (user) {
-          setIsAuthOpen(false);
-          setActiveOverlay(null);
-          // Fetch memories from Firestore
-          const path = `users/${user.uid}`;
-          try {
-            const userDoc = await getDocFromServer(doc(db, 'users', user.uid));
-            if (userDoc.exists()) {
-              const data = userDoc.data();
-              if (data.memories) {
-                setMemories(data.memories);
-              }
+    const { initAuth } = require('./lib/firebase');
+    const unsubscribe = initAuth(
+      async (user: any, token: string) => {
+        setIsAuthOpen(false);
+        setActiveOverlay(null);
+        // Fetch memories from Firestore
+        const path = `users/${user.uid}`;
+        try {
+          const userDoc = await getDocFromServer(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            if (data.memories) {
+              setMemories(data.memories);
             }
-          } catch (e) {
-            handleFirestoreError(e, OperationType.GET, path);
           }
-       } else {
-          setIsAuthOpen(true);
-          setMemories([]);
-       }
-    });
+        } catch (e) {
+          handleFirestoreError(e, OperationType.GET, path);
+        }
+      },
+      () => {
+        setIsAuthOpen(true);
+        setMemories([]);
+      }
+    );
     return () => unsubscribe();
   }, []);
 
@@ -315,19 +317,9 @@ When using tools, think silently but speak naturally after receiving results.` }
 
   const handleGoogleLogin = async () => {
      setAuthError('');
-     const provider = new GoogleAuthProvider();
-     provider.addScope('https://www.googleapis.com/auth/calendar');
-     provider.addScope('https://www.googleapis.com/auth/gmail.modify');
-     provider.addScope('https://www.googleapis.com/auth/drive');
-     provider.addScope('https://www.googleapis.com/auth/tasks');
-     provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
-     provider.addScope('https://www.googleapis.com/auth/userinfo.email');
      try {
-        const result = await signInWithPopup(auth, provider);
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        if (credential?.accessToken) {
-            localStorage.setItem('google_access_token', credential.accessToken);
-        }
+        const { googleSignIn } = require('./lib/firebase');
+        await googleSignIn();
      } catch (err: any) {
         setAuthError(err.message);
      }
