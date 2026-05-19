@@ -764,7 +764,27 @@ When using tools, think silently but speak naturally after receiving results.` }
           <div className="overlay-title">WhatsApp Integrations</div>
           <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
         </div>
-        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>WhatsApp chat interface connects here.</p></div>
+        <div className="overlay-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: 0 }}>
+           <div style={{ padding: '20px', textAlign: 'center', backgroundColor: '#e0f2f1', margin: '20px', borderRadius: '12px' }}>
+              <QrCode size={120} color="#25d366" style={{ margin: '0 auto' }} />
+              <h3 style={{ color: '#075e54', marginTop: '16px' }}>Link Eburon to WhatsApp</h3>
+              <p style={{ color: '#000', opacity: 0.7, marginTop: '8px' }}>Open WhatsApp on your phone, go to Linked Devices, and scan this code.</p>
+           </div>
+           <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' }}>
+             <h4 style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Recent Chats</h4>
+             {[1, 2, 3].map(i => (
+               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
+                 <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: 'var(--surface-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <User size={24} color="var(--text-muted)" />
+                 </div>
+                 <div style={{ flex: 1 }}>
+                   <div style={{ fontWeight: 600 }}>Mock Contact {i}</div>
+                   <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Latest message preview goes here...</div>
+                 </div>
+               </div>
+             ))}
+           </div>
+        </div>
       </div>
 
       {/* Scanner Overlay */}
@@ -773,7 +793,35 @@ When using tools, think silently but speak naturally after receiving results.` }
           <div className="overlay-title">Supermarket Scanner</div>
           <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
         </div>
-        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>Camera scanner goes here.</p></div>
+        <div className="overlay-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', padding: '20px' }}>
+          <div style={{ width: '100%', maxWidth: '400px', aspectRatio: '3/4', backgroundColor: '#000', borderRadius: '16px', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {activeOverlay === 'scanner' ? (
+              <video autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} ref={video => {
+                if (video && !video.srcObject) {
+                  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                    .then(stream => { video.srcObject = stream; })
+                    .catch(err => console.error("Camera error:", err));
+                }
+              }} />
+            ) : <Video size={48} color="#444" />}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, border: '4px solid rgba(255,255,255,0.2)', pointerEvents: 'none' }}>
+               <div style={{ position: 'absolute', top: '20%', left: '10%', right: '10%', bottom: '20%', border: '2px solid #2563eb', borderRadius: '8px', boxShadow: '0 0 0 4000px rgba(0,0,0,0.5)' }}></div>
+            </div>
+          </div>
+          <div className="form-group" style={{ width: '100%', maxWidth: '400px', marginTop: '24px' }}>
+            <label>Translate to</label>
+            <select className="form-control" defaultValue="en">
+              <option value="en">English</option>
+              <option value="nl">Dutch (Flemish)</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="es">Spanish</option>
+            </select>
+          </div>
+          <button className="primary-btn" style={{ width: '100%', maxWidth: '400px', marginTop: '16px' }} onClick={() => {
+            if (activeOverlay === 'scanner') setActiveOverlay(null);
+          }}>Simulate Scan</button>
+        </div>
       </div>
 
       {/* Map Overlay */}
@@ -782,7 +830,21 @@ When using tools, think silently but speak naturally after receiving results.` }
           <div className="overlay-title">Location Map</div>
           <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
         </div>
-        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>Google Maps iframe loads here.</p></div>
+        <div className="overlay-content" style={{ height: '100%', padding: '0', position: 'relative' }}>
+         <iframe 
+           width="100%" 
+           height="100%" 
+           style={{ border: 0 }}
+           loading="lazy"
+           allowFullScreen 
+           src="https://www.openstreetmap.org/export/embed.html?bbox=3.61,50.95,3.81,51.15&layer=mapnik&marker=51.05,3.71"
+         ></iframe>
+         <div style={{ position: 'absolute', bottom: '20px', left: '20px', right: '20px', backgroundColor: 'var(--surface-color)', padding: '16px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontWeight: 600, fontSize: 16 }}>Location Context</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Lat: 51.0543, Lng: 3.7174 (Ghent, Belgium)</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Weather: 18°C, Partly Cloudy</div>
+         </div>
+       </div>
       </div>
 
       {/* Meet Overlay */}
@@ -791,7 +853,35 @@ When using tools, think silently but speak naturally after receiving results.` }
           <div className="overlay-title">Video Call</div>
           <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
         </div>
-        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>Webcam and avatar go here.</p></div>
+        <div className="overlay-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '0', backgroundColor: '#111' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+             {/* Beatrice AI avatar (top) */}
+             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                <img src="/api/avatar" alt="Beatrice" style={{ width: '120px', height: '120px', borderRadius: '50%', boxShadow: '0 0 60px rgba(203, 251, 69, 0.4)' }} />
+                <div style={{ position: 'absolute', bottom: '16px', left: '16px', color: '#fff', fontWeight: 500 }}>Beatrice</div>
+             </div>
+             {/* User webcam (bottom) */}
+             <div style={{ flex: 1, backgroundColor: '#000', position: 'relative' }}>
+                {activeOverlay === 'meet' && (
+                  <video autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} ref={video => {
+                    if (video && !video.srcObject) {
+                      navigator.mediaDevices.getUserMedia({ video: true })
+                        .then(stream => { video.srcObject = stream; })
+                        .catch(err => console.error("Camera error:", err));
+                    }
+                  }} />
+                )}
+                <div style={{ position: 'absolute', bottom: '16px', left: '16px', color: '#fff', fontWeight: 500, textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>You</div>
+             </div>
+          </div>
+          {/* Controls */}
+          <div style={{ padding: '24px', display: 'flex', gap: '16px', justifyContent: 'center', backgroundColor: '#000' }}>
+            <button className="icon-btn" style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: '#444', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Mic size={24} /></button>
+            <button className="icon-btn" style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: '#444', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Video size={24} /></button>
+            <button className="icon-btn" style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: '#444', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Cast size={24} /></button>
+            <button className="icon-btn" style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: '#ef4444', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setActiveOverlay(null)}><X size={24} /></button>
+          </div>
+       </div>
       </div>
 
       {/* Picker Overlay */}
@@ -800,7 +890,39 @@ When using tools, think silently but speak naturally after receiving results.` }
           <div className="overlay-title">Google Drive Picker</div>
           <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
         </div>
-        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>Drive file list loads here.</p></div>
+        <div className="overlay-content" style={{ padding: '20px' }}>
+          <div className="form-group" style={{ marginBottom: '24px' }}>
+             <div className="input-wrapper" style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--surface-color)', padding: '12px 16px', borderRadius: '12px' }}>
+               <Search size={20} color="var(--text-muted)" style={{ marginRight: '12px' }} />
+               <input type="text" placeholder="Search in Drive..." style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, color: 'var(--text-main)', fontSize: 16 }} />
+             </div>
+          </div>
+          
+          <h4 style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Recent Files</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', backgroundColor: 'var(--surface-color)', borderRadius: '12px', cursor: 'pointer' }} onClick={() => setActiveOverlay(null)}>
+                <FileStack size={32} color="#4285F4" />
+                <div style={{ flex: 1 }}>
+                   <div style={{ fontWeight: 600 }}>Project Brief 2026.docx</div>
+                   <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Modified today by You</div>
+                </div>
+             </div>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', backgroundColor: 'var(--surface-color)', borderRadius: '12px', cursor: 'pointer' }} onClick={() => setActiveOverlay(null)}>
+                <Table size={32} color="#0F9D58" />
+                <div style={{ flex: 1 }}>
+                   <div style={{ fontWeight: 600 }}>Q3 Financials.xlsx</div>
+                   <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Modified yesterday</div>
+                </div>
+             </div>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', backgroundColor: 'var(--surface-color)', borderRadius: '12px', cursor: 'pointer' }} onClick={() => setActiveOverlay(null)}>
+                <Presentation size={32} color="#F4B400" />
+                <div style={{ flex: 1 }}>
+                   <div style={{ fontWeight: 600 }}>Investor Pitch Deck.pptx</div>
+                   <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Modified last week</div>
+                </div>
+             </div>
+          </div>
+       </div>
       </div>
 
       {/* Tools Overlay */}
