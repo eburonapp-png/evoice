@@ -116,6 +116,15 @@
     .bg-gmail { background: #f8455e; }
     .bg-sheets { background: #28ca63; }
     .bg-slides { background: #fca727; }
+    .bg-whatsapp { background: #25d366; }
+    .bg-scanner { background: linear-gradient(135deg, #fbbf24, #d97706); }
+    .bg-location { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+    .bg-knowledge { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+    .bg-meet { background: linear-gradient(135deg, #10b981, #059669); }
+    .bg-chat { background: #e0f2f1; }
+    .bg-forms { background: #ede7f6; }
+    .bg-keep { background: #fff8e1; }
+    .bg-picker { background: linear-gradient(135deg, #4285f4, #0f9d58); }
 
     /* ---------------------------------------------------
        5. Chat Stream

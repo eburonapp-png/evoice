@@ -171,13 +171,132 @@ export function useLiveApi({
            }
         }
 
-        if (fc.name === 'generate_artifact') {
+        if (fc.name === 'open_overlay') {
+           const { overlay_id } = fc.args as any;
+           responsePayload = { status: `Opened overlay ${overlay_id}` };
+           const uiState = await import('../../lib/state');
+           uiState.useUI.getState().setActiveOverlay(overlay_id);
+        }
+
+        if (fc.name === 'get_current_datetime') {
+           responsePayload = { datetime: new Date().toISOString(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+        }
+
+        if (fc.name === 'calculate') {
+           const { expression } = fc.args as any;
+           try {
+              // Note: in a real app use a safe evaluator, but this is a mock representation
+              const result = eval(expression);
+              responsePayload = { result };
+           } catch {
+              responsePayload = { error: 'Invalid expression' };
+           }
+        }
+
+        if (fc.name === 'open_browser_url') {
+           const { url } = fc.args as any;
+           window.open(url, '_blank');
+           responsePayload = { status: `Opened ${url} in a new tab` };
+        }
+
+        if (fc.name === 'create_html_document' || fc.name === 'create_json_file') {
+           const { title, content } = fc.args as any;
+           const type = fc.name === 'create_html_document' ? 'html' : 'json';
+           responsePayload = { status: `${type.toUpperCase()} artifact generated successfully`, title };
+           const uiState = await import('../../lib/state');
+           uiState.useUI.getState().setActiveWorkspaceResult({
+              artifact: { title, type, content, language: type }
+           });
+        }
+
+        if (fc.name === 'run_google_workspace_action') {
+           const { action, params } = fc.args as any;
+           responsePayload = { status: `Simulated action ${action}`, params };
+        }
+
+        if (fc.name === 'google_search') {
+           const { query } = fc.args as any;
+           responsePayload = { results: [`Simulated search results for: ${query}`] };
+        }
+
+        if (fc.name === 'search_places') {
+           const { query } = fc.args as any;
+           responsePayload = { results: [`Simulated place results for: ${query}`] };
+        }
+
+        if (fc.name === 'save_memory') {
+           const { category, content } = fc.args as any;
+           responsePayload = { status: 'Memory saved', category, content };
+        }
+
+        if (fc.name === 'generate_artifact' || fc.name === 'create_markdown_document') {
            const { title, type, content, language } = fc.args as any;
+           const artifactType = type || (fc.name === 'create_markdown_document' ? 'markdown' : 'structured');
            responsePayload = { status: 'Artifact generated successfully', title };
            const uiState = await import('../../lib/state');
            uiState.useUI.getState().setActiveWorkspaceResult({
-              artifact: { title, type, content, language }
+              artifact: { title, type: artifactType, content, language }
            });
+        }
+
+        if (fc.name === 'save_note') {
+           const { title, content } = fc.args as any;
+           // Local placeholder for now, could use backend
+           responsePayload = { status: 'Note saved successfully' };
+           console.log('Saving Note:', title, content);
+        }
+
+        if (fc.name === 'create_chart_spec') {
+           const { title, type, data } = fc.args as any;
+           responsePayload = { status: 'Chart specification created' };
+           const uiState = await import('../../lib/state');
+           uiState.useUI.getState().setActiveWorkspaceResult({
+              artifact: { title, type: 'chart', content: JSON.stringify(data) }
+           });
+        }
+
+        if (fc.name === 'send_whatsapp_message') {
+           const { to, message } = fc.args as any;
+           try {
+              const { apiClient } = await import('../../lib/api-client');
+              // This is a placeholder since WhatsApp proxy requires token/auth
+              responsePayload = { status: 'WhatsApp message sent (simulated)', to };
+           } catch (e: any) {
+              responsePayload = { error: e.message };
+           }
+        }
+
+        if (fc.name === 'execute_safe_command') {
+            const { command } = fc.args as any;
+            // Simulated safe commands
+            const results: Record<string, string> = {
+                'date': new Date().toString(),
+                'uptime': '12:34:56 up 2 days, 4:20',
+                'hostname': 'eburon-ai-node-01',
+                'pwd': '/home/eburon/workspace',
+                'whoami': 'eburon-agent',
+                'ls': 'artifacts/ notes/ project.md readme.md'
+            };
+            responsePayload = { output: results[command] || 'Command not found' };
+        }
+
+        if (fc.name === 'get_user_location') {
+            responsePayload = new Promise((resolve) => {
+                if ("geolocation" in navigator) {
+                    navigator.geolocation.getCurrentPosition((position) => {
+                        resolve({ 
+                            latitude: position.coords.latitude, 
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        });
+                    }, (error) => {
+                        resolve({ error: error.message });
+                    });
+                } else {
+                    resolve({ error: "Geolocation not supported" });
+                }
+            });
+            responsePayload = await responsePayload;
         }
 
         // Prepare the response

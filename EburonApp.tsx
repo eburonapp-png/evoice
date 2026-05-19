@@ -6,9 +6,16 @@ import ReactMarkdown from 'react-markdown';
 import { Modality } from '@google/genai';
 import { useVideoStream } from './hooks/use-video-stream';
 import { LANGUAGES } from './lib/languages';
-import { auth, db, testConnection, handleFirestoreError, OperationType } from './lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from './lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDocFromServer, setDoc } from 'firebase/firestore';
+import { 
+  User, ListChecks, Calendar, FolderOpen, Search, Signature, 
+  Building2, Video, MessageSquare, Settings, Wrench, History, 
+  Trash2, QrCode, MapPin, Brain, Presentation, Mail, Table, 
+  FileStack, Paperclip, Send, Mic, Cast, X, Check, Save, RotateCcw,
+  Plug, Lock, Pencil
+} from 'lucide-react';
 
 function StreamingText({ text, isFinal }: { text: string; isFinal: boolean }) {
   const [displayedText, setDisplayedText] = useState(isFinal ? text : "");
@@ -36,7 +43,8 @@ function StreamingText({ text, isFinal }: { text: string; isFinal: boolean }) {
 export default function EburonApp() {
   const [isAuthOpen, setIsAuthOpen] = useState(true);
   const [isSignupMode, setIsSignupMode] = useState(false);
-  const [activeOverlay, setActiveOverlay] = useState<string | null>(null);
+  const activeOverlay = useUI((state) => state.activeOverlay);
+  const setActiveOverlay = useUI((state) => state.setActiveOverlay);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -295,20 +303,32 @@ When using tools, think silently but speak naturally after receiving results.` }
   };
 
   const handleToolAction = (toolId: string) => {
-    if (['history', 'tools', 'profile', 'settings'].includes(toolId)) {
-      setActiveOverlay(toolId);
+    if (['history', 'tools', 'profile', 'settings', 'whatsapp', 'scanner', 'meet', 'location', 'picker'].includes(toolId)) {
+      if (toolId == 'location') {
+        setActiveOverlay('map');
+      } else {
+        setActiveOverlay(toolId);
+      }
     } else {
       const prompts: Record<string, string> = {
-        'tasks': 'Can you show my pending tasks?',
-        'calendar': 'What does my schedule look like today?',
-        'drive': 'Find the latest project files in my Google Drive.',
-        'google': 'Run a quick Google search on recent tech news.',
-        'signature': 'Prepare a non-disclosure agreement for signature.',
-        'company': 'Look up the company registration details for Acme Corp.',
-        'proposal': 'Draft a business proposal for a new client.',
-        'gmail': 'Check my inbox for unread emails from the team.',
-        'sheets': 'Create a new expense tracking spreadsheet.',
-        'slides': 'Generate a presentation template for the Q3 review.'
+        'tasks': 'Pull up my Google Tasks and give me a quick overview of what\'s on my list.',
+        'calendar': 'What\'s on my calendar today? Show me my schedule.',
+        'drive': 'Find my recent files in Google Drive and show me what\'s there.',
+        'google': 'Search the web for the latest AI and tech news and give me a quick rundown of the top stories.',
+        'signature': 'I need a signature pad tool where I can draw my signature on screen.',
+        'company': 'Ask me which company I want to look up first. Once I tell you the company name, search for their registration info, address, industry, and key people.',
+        'proposal': 'I need a business proposal with sections for scope, timeline, and pricing, with a download button.',
+        'gmail': 'Check my unread emails and summarize what\'s new in my inbox.',
+        'sheets': 'Create a new Google Sheet for tracking expenses and set it up with the right columns.',
+        'slides': 'Build me a presentation template with a few slides I can flip through.',
+        'chat': 'Show me my Google Chat spaces and summarize what\'s been going on in them.',
+        'forms': 'Create a feedback form that\'s interactive with validation and a nice design.',
+        'keep': 'Pull up my Google Keep notes and show me what I\'ve saved.',
+        'contract': 'I need a formal contract agreement with an e-signature feature. Make it look professional with a signature pad I can draw on.',
+        'invoice': 'I need an invoice with line items, auto-calculated totals, and a download button.',
+        'contacts': 'Show me my Google Contacts and help me find someone.',
+        'firebase': 'Create a Firebase-style dashboard with live data cards and activity feed.',
+        'docs': 'Ask me what type of document I need and which company it\'s for...'
       };
       const prompt = prompts[toolId] || `Execute action: ${toolId}`;
       if (connected) {
@@ -384,7 +404,7 @@ When using tools, think silently but speak naturally after receiving results.` }
              className="connect-btn"
              style={{ backgroundColor: connected ? 'var(--accent-active)' : 'var(--accent-primary)' }}
           >
-            <i className="ph-bold ph-plug"></i> <span>{connected ? 'Connected' : 'Connect'}</span>
+            <Plug size={18} /> <span>{connected ? 'Connected' : 'Connect'}</span>
           </button>
         </div>
       </header>
@@ -393,24 +413,38 @@ When using tools, think silently but speak naturally after receiving results.` }
       <div id="skills-rail">
         <div className="skills-row" data-row="1">
           <div className="skills-track">
-            <div className="skill-chip" onClick={() => handleToolAction('profile')}><div className="skill-glyph bg-profile"><i className="ph-duotone ph-user"></i></div><span className="skill-label">Profile</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('tasks')}><div className="skill-glyph bg-tasks"><i className="ph-duotone ph-list-checks"></i></div><span className="skill-label">Tasks</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('calendar')}><div className="skill-glyph bg-calendar"><i className="ph-duotone ph-calendar-dots"></i></div><span className="skill-label">Calendar</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('drive')}><div className="skill-glyph bg-drive"><i className="ph-duotone ph-folder-open"></i></div><span className="skill-label">Drive</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('google')}><div className="skill-glyph bg-google"><i className="ph-fill ph-google-logo"></i></div><span className="skill-label">Google</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('signature')}><div className="skill-glyph bg-signature"><i className="ph-duotone ph-signature"></i></div><span className="skill-label">Sign</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('company')}><div className="skill-glyph bg-company"><i className="ph-duotone ph-buildings"></i></div><span className="skill-label">Company</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('profile')}><div className="skill-glyph bg-profile"><User size={28} /></div><span className="skill-label">Profile</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('tasks')}><div className="skill-glyph bg-tasks"><ListChecks size={28} /></div><span className="skill-label">Tasks</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('calendar')}><div className="skill-glyph bg-calendar"><Calendar size={28} /></div><span className="skill-label">Calendar</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('drive')}><div className="skill-glyph bg-drive"><FolderOpen size={28} /></div><span className="skill-label">Drive</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('google')}><div className="skill-glyph bg-google"><Search size={28} color="#4285F4" /></div><span className="skill-label">Google</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('signature')}><div className="skill-glyph bg-signature"><Signature size={28} /></div><span className="skill-label">Sign</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('company')}><div className="skill-glyph bg-company"><Building2 size={28} /></div><span className="skill-label">Company</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('chat')}><div className="skill-glyph bg-chat"><MessageSquare size={28} color="#00ac47" /></div><span className="skill-label">Chat</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('forms')}><div className="skill-glyph bg-forms"><FileStack size={28} color="#7248b9" /></div><span className="skill-label">Forms</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('keep')}><div className="skill-glyph bg-keep"><Paperclip size={28} color="#fbbc04" /></div><span className="skill-label">Keep</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('meet')}><div className="skill-glyph bg-meet"><Video size={28} /></div><span className="skill-label">Meet</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('whatsapp')}><div className="skill-glyph bg-whatsapp"><MessageSquare size={28} /></div><span className="skill-label">WhatsApp</span></div>
           </div>
         </div>
         <div className="skills-row" data-row="2">
           <div className="skills-track">
-            <div className="skill-chip" onClick={() => handleToolAction('settings')}><div className="skill-glyph bg-settings"><i className="ph-duotone ph-gear"></i></div><span className="skill-label">Settings</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('tools')}><div className="skill-glyph bg-tools"><i className="ph-duotone ph-wrench"></i></div><span className="skill-label">Tools</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('history')}><div className="skill-glyph bg-history"><i className="ph-duotone ph-clock-counter-clockwise"></i></div><span className="skill-label">History</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('proposal')}><div className="skill-glyph bg-proposal"><i className="ph-duotone ph-presentation-chart"></i></div><span className="skill-label">Proposal</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('gmail')}><div className="skill-glyph bg-gmail"><i className="ph-duotone ph-envelope-simple"></i></div><span className="skill-label">Mail</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('sheets')}><div className="skill-glyph bg-sheets"><i className="ph-duotone ph-table"></i></div><span className="skill-label">Sheets</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('slides')}><div className="skill-glyph bg-slides"><i className="ph-duotone ph-presentation-chart"></i></div><span className="skill-label">Slides</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('settings')}><div className="skill-glyph bg-settings"><Settings size={28} /></div><span className="skill-label">Settings</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('tools')}><div className="skill-glyph bg-tools"><Wrench size={28} /></div><span className="skill-label">Tools</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('history')}><div className="skill-glyph bg-history"><History size={28} /></div><span className="skill-label">History</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('scanner')}><div className="skill-glyph bg-scanner"><QrCode size={28} /></div><span className="skill-label">Scanner</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('location')}><div className="skill-glyph bg-location"><MapPin size={28} /></div><span className="skill-label">Location</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('knowledge')}><div className="skill-glyph bg-knowledge"><Brain size={28} /></div><span className="skill-label">Knowledge</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('proposal')}><div className="skill-glyph bg-proposal"><Presentation size={28} /></div><span className="skill-label">Proposal</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('gmail')}><div className="skill-glyph bg-gmail"><Mail size={28} /></div><span className="skill-label">Mail</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('sheets')}><div className="skill-glyph bg-sheets"><Table size={28} /></div><span className="skill-label">Sheets</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('slides')}><div className="skill-glyph bg-slides"><FileStack size={28} /></div><span className="skill-label">Slides</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('contract')}><div className="skill-glyph bg-contract" style={{background: 'linear-gradient(135deg, #d4af37, #aa8222)'}}><Signature size={28} /></div><span className="skill-label">Contract</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('invoice')}><div className="skill-glyph bg-invoice" style={{background: 'linear-gradient(135deg, #60a5fa, #2563eb)'}}><FileStack size={28} /></div><span className="skill-label">Invoice</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('contacts')}><div className="skill-glyph bg-contacts"><User size={28} color="#1a73e8" /></div><span className="skill-label">Contacts</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('firebase')}><div className="skill-glyph bg-firebase" style={{background: '#ffca28'}}><Brain size={28} /></div><span className="skill-label">Firebase</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('docs')}><div className="skill-glyph bg-docs" style={{background: 'linear-gradient(135deg, #34d399, #059669)'}}><FileStack size={28} /></div><span className="skill-label">Docs</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('picker')}><div className="skill-glyph bg-picker"><Search size={28} /></div><span className="skill-label">Picker</span></div>
           </div>
         </div>
       </div>
@@ -435,7 +469,7 @@ When using tools, think silently but speak naturally after receiving results.` }
       <div className="bottom-dock">
         <div className="input-wrapper">
           <div className="input-bar">
-            <button className="attach-btn" onClick={() => fileInputRef.current?.click()}><i className="ph ph-paperclip"></i></button>
+            <button className="attach-btn" onClick={() => fileInputRef.current?.click()}><Paperclip size={20} /></button>
             <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleFileUpload} />
             <input 
                type="text" 
@@ -445,7 +479,7 @@ When using tools, think silently but speak naturally after receiving results.` }
                onChange={(e) => setMessage(e.target.value)}
                onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
                autoComplete="off" />
-            <button id="send-button" className="send-btn" onClick={handleSend}><i className="ph-bold ph-paper-plane-right"></i></button>
+            <button id="send-button" className="send-btn" onClick={handleSend}><Send size={18} /></button>
           </div>
         </div>
         <nav className="nav-controls">
@@ -456,7 +490,7 @@ When using tools, think silently but speak naturally after receiving results.` }
                  height: micState ? `${20 + clientVolume * 40}px` : '0px',
                  opacity: micState && clientVolume > 0.01 ? 0.3 : 0
                }}></div>
-               <i className="ph-fill ph-microphone"></i>
+               <Mic size={20} fill={micState ? 'currentColor' : 'none'} />
              </div>
              <span>Mic</span>
           </button>
@@ -468,7 +502,7 @@ When using tools, think silently but speak naturally after receiving results.` }
                  opacity: isWebcamActive ? 0.3 : 0,
                  animation: isWebcamActive ? 'pulse-anim 2s infinite' : 'none'
                }}></div>
-               <i className="ph-fill ph-video-camera"></i>
+               <Video size={20} fill={isWebcamActive ? 'currentColor' : 'none'} />
              </div>
              <span>Camera</span>
           </button>
@@ -480,7 +514,7 @@ When using tools, think silently but speak naturally after receiving results.` }
                  opacity: isScreenShareActive ? 0.3 : 0,
                  animation: isScreenShareActive ? 'pulse-anim 2s infinite' : 'none'
                }}></div>
-               <i className="ph-fill ph-screencast"></i>
+               <Cast size={20} fill={isScreenShareActive ? 'currentColor' : 'none'} />
              </div>
              <span>Share</span>
           </button>
@@ -495,7 +529,7 @@ When using tools, think silently but speak naturally after receiving results.` }
           <div className="overlay-title">
             {activeWorkspaceResult?.artifact ? `Artifact: ${activeWorkspaceResult.artifact.title}` : 'Workspace Data'}
           </div>
-          <button className="close-overlay-btn" onClick={() => setActiveWorkspaceResult(null)}><i className="ph-bold ph-x"></i></button>
+          <button className="close-overlay-btn" onClick={() => setActiveWorkspaceResult(null)}><X size={18} /></button>
         </div>
         <div className="overlay-content" style={{ overflowY: 'auto', padding: '24px' }}>
            {activeWorkspaceResult?.artifact ? (
@@ -532,7 +566,7 @@ When using tools, think silently but speak naturally after receiving results.` }
       <div id="overlay-profile" className={`full-page-overlay ${activeOverlay === 'profile' ? 'active' : ''}`}>
         <div className="overlay-header">
           <div className="overlay-title">User Profile</div>
-          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><i className="ph-bold ph-x"></i></button>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
         </div>
         <div className="overlay-content">
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
@@ -604,14 +638,14 @@ When using tools, think silently but speak naturally after receiving results.` }
                                 setEditingMemoryValue(m.content);
                               }}
                             >
-                              <i className="ph ph-note-pencil"></i>
+                              <Pencil size={12} />
                             </button>
                             <button 
                               className="icon-btn" 
                               style={{ color: '#ff4d4d', background: 'transparent', border: 'none', cursor: 'pointer' }}
                               onClick={() => handleDeleteMemory(i)}
                             >
-                              <i className="ph ph-trash"></i>
+                              <Trash2 size={12} />
                             </button>
                           </div>
                         </div>
@@ -643,7 +677,7 @@ When using tools, think silently but speak naturally after receiving results.` }
       <div id="overlay-settings" className={`full-page-overlay ${activeOverlay === 'settings' ? 'active' : ''}`}>
         <div className="overlay-header">
           <div className="overlay-title">App Settings</div>
-          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><i className="ph-bold ph-x"></i></button>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
         </div>
         <div className="overlay-content">
           <div className="form-group">
@@ -719,16 +753,61 @@ When using tools, think silently but speak naturally after receiving results.` }
       <div id="overlay-history" className={`full-page-overlay ${activeOverlay === 'history' ? 'active' : ''}`}>
         <div className="overlay-header">
           <div className="overlay-title">Activity History</div>
-          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><i className="ph-bold ph-x"></i></button>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
         </div>
         <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>No recent history.</p></div>
+      </div>
+
+      {/* WhatsApp Overlay */}
+      <div id="overlay-whatsapp" className={`full-page-overlay ${activeOverlay === 'whatsapp' ? 'active' : ''}`}>
+        <div className="overlay-header">
+          <div className="overlay-title">WhatsApp Integrations</div>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
+        </div>
+        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>WhatsApp chat interface connects here.</p></div>
+      </div>
+
+      {/* Scanner Overlay */}
+      <div id="overlay-scanner" className={`full-page-overlay ${activeOverlay === 'scanner' ? 'active' : ''}`}>
+        <div className="overlay-header">
+          <div className="overlay-title">Supermarket Scanner</div>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
+        </div>
+        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>Camera scanner goes here.</p></div>
+      </div>
+
+      {/* Map Overlay */}
+      <div id="overlay-map" className={`full-page-overlay ${activeOverlay === 'map' ? 'active' : ''}`}>
+        <div className="overlay-header">
+          <div className="overlay-title">Location Map</div>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
+        </div>
+        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>Google Maps iframe loads here.</p></div>
+      </div>
+
+      {/* Meet Overlay */}
+      <div id="overlay-meet" className={`full-page-overlay ${activeOverlay === 'meet' ? 'active' : ''}`}>
+        <div className="overlay-header">
+          <div className="overlay-title">Video Call</div>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
+        </div>
+        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>Webcam and avatar go here.</p></div>
+      </div>
+
+      {/* Picker Overlay */}
+      <div id="overlay-picker" className={`full-page-overlay ${activeOverlay === 'picker' ? 'active' : ''}`}>
+        <div className="overlay-header">
+          <div className="overlay-title">Google Drive Picker</div>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
+        </div>
+        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>Drive file list loads here.</p></div>
       </div>
 
       {/* Tools Overlay */}
       <div id="overlay-tools" className={`full-page-overlay ${activeOverlay === 'tools' ? 'active' : ''}`}>
         <div className="overlay-header">
           <div className="overlay-title">Integrations</div>
-          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><i className="ph-bold ph-x"></i></button>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
         </div>
         <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>All tools active.</p></div>
       </div>
@@ -748,21 +827,21 @@ When using tools, think silently but speak naturally after receiving results.` }
             {authError && <div style={{color:'red', marginBottom:'10px', fontSize:'14px'}}>{authError}</div>}
             {isSignupMode && (
                <div className="auth-input-wrapper">
-                 <i className="ph ph-user auth-icon-left"></i>
+                 <User size={20} className="auth-icon-left" />
                  <input type="text" placeholder="Full name" value={name} onChange={e => setName(e.target.value)} />
                </div>
             )}
             <div className="auth-input-wrapper">
-              <i className="ph ph-envelope auth-icon-left"></i>
+              <Mail size={20} className="auth-icon-left" />
               <input type="email" placeholder="Email" required value={email} onChange={e => setEmail(e.target.value)} />
             </div>
             <div className="auth-input-wrapper">
-              <i className="ph ph-lock auth-icon-left"></i>
+              <Lock size={20} className="auth-icon-left" />
               <input type="password" placeholder="Password" required value={password} onChange={e => setPassword(e.target.value)} />
             </div>
             {isSignupMode && (
                 <div className="auth-input-wrapper">
-                   <i className="ph ph-lock auth-icon-left"></i>
+                   <Lock size={20} className="auth-icon-left" />
                    <input type="password" placeholder="Confirm password" />
                 </div>
             )}
@@ -777,7 +856,7 @@ When using tools, think silently but speak naturally after receiving results.` }
           </button>
 
           <div className="permissions-note">
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><i className="ph-fill ph-shield-check" style={{color: 'var(--accent-active)'}}></i> Google Workspace Sync</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Check size={14} style={{color: 'var(--accent-active)'}} /> Google Workspace Sync</span>
             <span>Requires Read/Write permissions for Gmail, Drive, Calendar, and Tasks to enable full automation.</span>
           </div>
 
