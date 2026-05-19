@@ -170,14 +170,14 @@ export default function EburonApp() {
 
   useEffect(() => {
     const enabledTools = tools
-      .filter(t => t.isEnabled)
+      .filter(t => t.isEnabled && t.name !== 'google_search')
       .map(t => {
         const { isEnabled, scheduling, ...rest } = t;
-        if (t.name === 'google_search') {
-          return { googleSearch: {} };
-        }
         return { functionDeclarations: [rest] };
       });
+      
+    const groundingConfig = { googleSearch: {} };
+    const allTools = [...enabledTools, groundingConfig];
 
     const memoryStr = memories.length > 0 
       ? memories.map((m: any) => `- ${m.content} (${m.type})`).join('\n')
@@ -230,7 +230,7 @@ Before answering, silently infer: what the person actually needs right now, thei
 OUTPUT FORMAT
 Output only natural spoken text. No stage directions, no brackets, no role labels.` }]
       },
-      tools: enabledTools
+      tools: allTools
     } as any);
   }, [setConfig, tools, voice, language, personaName, userCallName, systemPrompt, memories]);
 

@@ -117,16 +117,6 @@ export function useLiveApi({
 
         let responsePayload: any = { result: 'ok' };
         
-        if (fc.name === 'google_search') {
-           const { query } = fc.args as any;
-           try {
-               const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-               responsePayload = await res.json();
-           } catch (e: any) {
-               responsePayload = { error: e.message };
-           }
-        }
-
         if (fc.name === 'fetch_google_api') {
            const { url, method, body } = fc.args as any;
            const token = await getAccessToken();
