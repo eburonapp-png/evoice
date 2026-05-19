@@ -35,7 +35,7 @@ export const workspaceTools: FunctionCall[] = [
   },
   {
     name: "save_memory",
-    description: "Saves important personal information or context about the user for long-term memory. Use this to remember user names, preferences, interests, or project details.",
+    description: "Proactively stores important information to long-term memory (personal, work, project). Beatrice does this automatically when key decisions, preferences, or project details are discussed.",
     isEnabled: true,
     scheduling: FunctionResponseScheduling.INTERRUPT,
     parameters: {
@@ -43,14 +43,85 @@ export const workspaceTools: FunctionCall[] = [
       properties: {
         memory: {
           type: "STRING",
-          description: "Clear, concise sentence or two summarizing what to remember. e.g. 'The user is a software engineer from Paris' or 'The user prefers dark mode'."
+          description: "Clear, concise sentence or two summarizing what to remember."
         },
         type: {
           type: "STRING",
-          description: "Type of memory: 'personal' or 'context'"
+          description: "Type of memory: 'personal', 'work', or 'project'."
         }
       },
       required: ["memory", "type"]
+    }
+  },
+  {
+    name: "search_memories",
+    description: "Searches stored memories for relevant context about the user.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        query: { type: "STRING" }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "save_note",
+    description: "Saves a permanent note for the user. Use this when the user wants to 'write something down', 'take a note', or 'save this info for later'.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        title: { type: "STRING" },
+        content: { type: "STRING" }
+      },
+      required: ["title", "content"]
+    }
+  },
+  {
+    name: "list_notes",
+    description: "Lists all saved notes for the user.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: { type: "OBJECT", properties: {} }
+  },
+  {
+    name: "read_note",
+    description: "Reads a previously saved note by Title.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        title: { type: "STRING" }
+      },
+      required: ["title"]
+    }
+  },
+  {
+    name: "get_user_location",
+    description: "Retrieves the user's current GPS location via the browser.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: { type: "OBJECT", properties: {} }
+  },
+  {
+    name: "open_overlay",
+    description: "Opens a specific overlay panel in the UI (e.g. for user input, settings, or external integrations).",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        overlay_id: { 
+          type: "STRING", 
+          enum: ["profile", "settings", "history", "tools", "whatsapp", "scanner", "meet", "map", "picker"],
+          description: "The ID of the overlay to open."
+        }
+      },
+      required: ["overlay_id"]
     }
   },
   {
@@ -67,7 +138,7 @@ export const workspaceTools: FunctionCall[] = [
         },
         type: {
           type: "STRING",
-          description: "The type of artifact: 'markdown', 'code', 'chart', 'structured'"
+          description: "The type of artifact: 'markdown', 'code', 'chart', 'structured', 'html'"
         },
         content: {
           type: "STRING",
@@ -80,15 +151,116 @@ export const workspaceTools: FunctionCall[] = [
       },
       required: ["title", "type", "content"]
     }
+  },
+  {
+    name: "google_search",
+    description: "Performs a Google Search to get real-time information from the web.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        query: { type: "STRING" }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "calculate",
+    description: "Evaluates math expressions.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        expression: { type: "STRING" }
+      },
+      required: ["expression"]
+    }
+  },
+  {
+    name: "get_current_datetime",
+    description: "Returns current local date, time, and timezone.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: { type: "OBJECT", properties: {} }
+  },
+  {
+    name: "open_browser_url",
+    description: "Opens a URL in the user's default browser.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        url: { type: "STRING" }
+      },
+      required: ["url"]
+    }
+  },
+  {
+    name: "create_project_brief",
+    description: "Generates a structured project brief (goal, audience, features, risks, next steps).",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        title: { type: "STRING" },
+        content: { type: "STRING" }
+      },
+      required: ["title", "content"]
+    }
+  },
+  {
+    name: "create_checklist",
+    description: "Creates an interactive checklist from a list of tasks.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        title: { type: "STRING" },
+        items: { type: "ARRAY", items: { type: "STRING" } }
+      },
+      required: ["title", "items"]
+    }
+  },
+  {
+    name: "extract_tasks",
+    description: "Extracts action items from freeform text into a checklist.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        text: { type: "STRING" }
+      },
+      required: ["text"]
+    }
+  },
+  {
+    name: "send_whatsapp_message",
+    description: "Sends a text message to a WhatsApp phone number.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        phone: { type: "STRING", description: "The recipient's phone number in international format." },
+        message: { type: "STRING" }
+      },
+      required: ["phone", "message"]
+    }
   }
 ];
 
 export type Template = 'customer-support' | 'personal-assistant' | 'navigation-system';
 
 const toolsets: Record<Template, FunctionCall[]> = {
-  'customer-support': [...customerSupportTools, ...workspaceTools],
+  'customer-support': [...workspaceTools],
   'personal-assistant': [...personalAssistantTools, ...workspaceTools],
-  'navigation-system': [...navigationSystemTools, ...workspaceTools],
+  'navigation-system': [...workspaceTools],
 };
 
 const systemPrompts: Record<Template, string> = {
@@ -175,8 +347,8 @@ export const useTools = create<{
   removeTool: (toolName: string) => void;
   updateTool: (oldName: string, updatedTool: FunctionCall) => void;
 }>(set => ({
-  tools: customerSupportTools,
-  template: 'customer-support',
+  tools: personalAssistantTools,
+  template: 'personal-assistant',
   setTemplate: (template: Template) => {
     set({ tools: toolsets[template], template });
     useSettings.getState().setSystemPrompt(systemPrompts[template]);

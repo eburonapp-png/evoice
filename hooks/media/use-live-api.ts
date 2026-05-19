@@ -26,7 +26,8 @@ import { audioContext } from '../../lib/utils';
 import VolMeterWorket from '../../lib/worklets/vol-meter';
 import { useLogStore, useSettings } from '@/lib/state';
 import { db, auth, handleFirestoreError, OperationType, getAccessToken } from '@/lib/firebase';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
+import * as api from '../../lib/api-client';
 
 export type UseLiveApiResults = {
   client: GenAILiveClient;
@@ -116,6 +117,16 @@ export function useLiveApi({
 
         let responsePayload: any = { result: 'ok' };
         
+        if (fc.name === 'google_search') {
+           const { query } = fc.args as any;
+           try {
+               const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+               responsePayload = await res.json();
+           } catch (e: any) {
+               responsePayload = { error: e.message };
+           }
+        }
+
         if (fc.name === 'fetch_google_api') {
            const { url, method, body } = fc.args as any;
            const token = await getAccessToken();
@@ -146,27 +157,202 @@ export function useLiveApi({
            }
         }
 
+        if (fc.name === 'send_whatsapp_message') {
+            const { phone, message } = fc.args as any;
+            try {
+                responsePayload = await api.sendWhatsappMessage(phone, message);
+            } catch (e: any) {
+                responsePayload = { error: e.message };
+            }
+        }
+
+        if (fc.name === 'send_email') {
+           const { recipient, subject, body } = fc.args as any;
+           const token = await getAccessToken();
+           if (!token) {
+               responsePayload = { error: 'No Google access token found.' };
+           } else {
+               try {
+                   // Gmail API send message requires a base64url encoded raw message
+                   const email = [
+                       `To: ${recipient}`,
+                       `Subject: ${subject}`,
+                       'Content-Type: text/plain; charset=utf-8',
+                       '',
+                       body
+                   ].join('\r\n');
+                   const encodedEmail = btoa(unescape(encodeURIComponent(email))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                   
+                   const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+                       method: 'POST',
+                       headers: { 
+                           Authorization: `Bearer ${token}`,
+                           'Content-Type': 'application/json'
+                       },
+                       body: JSON.stringify({ raw: encodedEmail })
+                   });
+                   responsePayload = await res.json();
+               } catch (e: any) {
+                   responsePayload = { error: e.message };
+               }
+           }
+        }
+
+        if (fc.name === 'create_calendar_event') {
+           const { summary, location, startTime, endTime } = fc.args as any;
+           const token = await getAccessToken();
+           if (!token) {
+               responsePayload = { error: 'No Google access token found.' };
+           } else {
+               try {
+                   const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+                       method: 'POST',
+                       headers: { 
+                           Authorization: `Bearer ${token}`,
+                           'Content-Type': 'application/json'
+                       },
+                       body: JSON.stringify({
+                           summary,
+                           location,
+                           start: { dateTime: startTime },
+                           end: { dateTime: endTime }
+                       })
+                   });
+                   responsePayload = await res.json();
+               } catch (e: any) {
+                   responsePayload = { error: e.message };
+               }
+           }
+        }
+
+        if (fc.name === 'set_reminder') {
+           const { task, time } = fc.args as any;
+           const token = await getAccessToken();
+           if (!token) {
+               responsePayload = { error: 'No Google access token found.' };
+           } else {
+               try {
+                   const res = await fetch('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks', {
+                       method: 'POST',
+                       headers: { 
+                           Authorization: `Bearer ${token}`,
+                           'Content-Type': 'application/json'
+                       },
+                       body: JSON.stringify({
+                           title: task,
+                           due: time // ISO format works for due
+                       })
+                   });
+                   responsePayload = await res.json();
+               } catch (e: any) {
+                   responsePayload = { error: e.message };
+               }
+           }
+        }
+
         if (fc.name === 'save_memory') {
            const { memory, type } = fc.args as any;
+           try {
+               responsePayload = await api.saveMemory(memory, type);
+           } catch (e: any) {
+               responsePayload = { error: e.message };
+           }
+        }
+
+        if (fc.name === 'search_memories') {
+           const { query } = fc.args as any;
            const user = auth.currentUser;
            if (!user) {
-               responsePayload = { error: 'No user authenticated. Cannot save memory.' };
+               responsePayload = { error: 'No user authenticated.' };
            } else {
-               const path = `users/${user.uid}`;
                try {
-                   const userRef = doc(db, 'users', user.uid);
-                   await setDoc(userRef, {
-                       memories: arrayUnion({
-                           content: memory,
-                           type: type || 'personal',
-                           timestamp: new Date().toISOString()
-                       }),
+                   const { doc, getDoc } = await import('firebase/firestore');
+                   const userDoc = await getDoc(doc(db, 'users', user.uid));
+                   if (userDoc.exists()) {
+                       const memories = userDoc.data().memories || [];
+                       const filtered = memories.filter((m: any) => 
+                           m.content.toLowerCase().includes(query.toLowerCase())
+                       );
+                       responsePayload = { results: filtered };
+                   } else {
+                       responsePayload = { results: [] };
+                   }
+               } catch (e: any) {
+                   responsePayload = { error: e.message };
+               }
+           }
+        }
+
+        if (fc.name === 'save_note') {
+           const { title, content } = fc.args as any;
+           const user = auth.currentUser;
+           if (!user) {
+               responsePayload = { error: 'No user authenticated. Cannot save note.' };
+           } else {
+               const path = `users/${user.uid}/notes`;
+               try {
+                   const { collection, addDoc } = await import('firebase/firestore');
+                   const notesRef = collection(db, 'users', user.uid, 'notes');
+                   await addDoc(notesRef, {
+                       title,
+                       content,
+                       createdAt: new Date().toISOString(),
                        updatedAt: new Date().toISOString()
-                   }, { merge: true });
-                   responsePayload = { status: 'Memory saved successfully' };
+                   });
+                   responsePayload = { status: 'Note saved successfully', title };
                } catch (e: any) {
                    handleFirestoreError(e, OperationType.WRITE, path);
                }
+           }
+        }
+
+        if (fc.name === 'list_notes') {
+            const user = auth.currentUser;
+            if (!user) {
+                responsePayload = { error: 'No user authenticated.' };
+            } else {
+                try {
+                    const { collection, getDocs } = await import('firebase/firestore');
+                    const notesRef = collection(db, 'users', user.uid, 'notes');
+                    const snapshot = await getDocs(notesRef);
+                    const notes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    responsePayload = { notes };
+                } catch (e: any) {
+                    responsePayload = { error: e.message };
+                }
+            }
+        }
+
+        if (fc.name === 'read_note') {
+            const { title } = fc.args as any;
+            const user = auth.currentUser;
+            if (!user) {
+                responsePayload = { error: 'No user authenticated.' };
+            } else {
+                try {
+                    const { collection, query, where, getDocs, limit } = await import('firebase/firestore');
+                    const notesRef = collection(db, 'users', user.uid, 'notes');
+                    const q = query(notesRef, where('title', '==', title), limit(1));
+                    const snapshot = await getDocs(q);
+                    if (!snapshot.empty) {
+                        responsePayload = { note: snapshot.docs[0].data() };
+                    } else {
+                        responsePayload = { error: `Note titled "${title}" not found.` };
+                    }
+                } catch (e: any) {
+                    responsePayload = { error: e.message };
+                }
+            }
+        }
+
+        if (fc.name === 'calculate') {
+           const { expression } = fc.args as any;
+           try {
+              // Basic safe evaluation for math
+              const result = new Function(`return ${expression}`)();
+              responsePayload = { result };
+           } catch (e: any) {
+              responsePayload = { error: 'Calculation failed: ' + e.message };
            }
         }
 
@@ -187,10 +373,11 @@ export function useLiveApi({
            responsePayload = { status: `Opened ${url} in a new tab` };
         }
 
-        if (fc.name === 'create_html_document' || fc.name === 'create_json_file' || fc.name === 'generate_artifact' || fc.name === 'create_markdown_document' || fc.name === 'create_chart_spec') {
-           const { title, type, content, language, data } = fc.args as any;
+        if (fc.name === 'create_html_document' || fc.name === 'create_json_file' || fc.name === 'generate_artifact' || fc.name === 'create_markdown_document' || fc.name === 'create_chart_spec' || fc.name === 'create_project_brief' || fc.name === 'create_checklist') {
+           const { title, type, content, language, data, items } = fc.args as any;
            let actualType = type;
            let actualContent = content;
+           
            if (fc.name === 'create_html_document') actualType = 'html';
            if (fc.name === 'create_json_file') actualType = 'json';
            if (fc.name === 'create_markdown_document') actualType = 'markdown';
@@ -198,6 +385,12 @@ export function useLiveApi({
                actualType = 'chart';
                actualContent = JSON.stringify(data);
            }
+           if (fc.name === 'create_project_brief') actualType = 'markdown';
+           if (fc.name === 'create_checklist') {
+               actualType = 'markdown';
+               actualContent = `# ${title}\n\n` + items.map((it: string) => `- [ ] ${it}`).join('\n');
+           }
+           
            if (!actualType) actualType = 'structured';
            
            responsePayload = { status: `${actualType.toUpperCase()} artifact generated successfully`, title };

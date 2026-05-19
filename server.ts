@@ -68,40 +68,141 @@ async function startServer() {
 
   // Settings
   app.get('/api/settings', authenticateToken, async (req: any, res) => {
-    // Implementation should fetch from Supabase if available, else return defaults
-    res.json({
-      personaName: 'Beatrice',
-      userCallName: 'Boss',
-      voice: 'Puck',
-      language: 'English',
-      systemPrompt: 'Classic Beatrice behavior.'
-    });
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', req.user.uid)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      res.json(data || {
+        persona_name: 'Beatrice',
+        user_call_name: 'Boss',
+        voice: 'Puck',
+        language: 'English',
+        system_prompt: 'Classic Beatrice behavior.'
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
-  app.put('/api/settings', authenticateToken, async (req, res) => {
-    res.json({ success: true });
+  app.put('/api/settings', authenticateToken, async (req: any, res) => {
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({ user_id: req.user.uid, ...req.body, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // Memories
   app.get('/api/memories', authenticateToken, async (req: any, res) => {
-    res.json({ memories: [] });
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+      const { data, error } = await supabase
+        .from('user_memories')
+        .select('*')
+        .eq('user_id', req.user.uid)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.post('/api/memories', authenticateToken, async (req: any, res) => {
-    res.status(201).json({ id: 'new-memory-id', ...req.body });
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+      const { data, error } = await supabase
+        .from('user_memories')
+        .insert([{ user_id: req.user.uid, ...req.body, created_at: new Date().toISOString() }])
+        .select()
+        .single();
+      if (error) throw error;
+      res.status(201).json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
-  app.delete('/api/memories/:id', authenticateToken, async (req, res) => {
-    res.json({ success: true });
+  app.delete('/api/memories/:id', authenticateToken, async (req: any, res) => {
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+      const { error } = await supabase
+        .from('user_memories')
+        .delete()
+        .eq('id', req.params.id)
+        .eq('user_id', req.user.uid);
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
-  // Search Proxy (Grounded)
+  // Search Proxy
   app.get('/api/search', async (req, res) => {
     const { q } = req.query;
-    res.json({ results: [`Mock search results for: ${q}`] });
+    const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
+    const cx = process.env.GOOGLE_SEARCH_ENGINE_ID;
+    if (!apiKey || !cx) return res.json({ results: [`Google Search not configured on server.`] });
+    
+    try {
+      const searchRes = await fetch(`https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(q as string)}`);
+      const data = await searchRes.json();
+      const results = data.items?.map((item: any) => `${item.title}: ${item.snippet} (${item.link})`) || [];
+      res.json({ results });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
-  // Vite Middleware
+  // WhatsApp Proxy
+  app.get('/api/whatsapp/connect', async (req, res) => {
+    const gowaUrl = process.env.GOWA_API_URL;
+    if (!gowaUrl) return res.status(503).json({ error: 'GoWA API not configured' });
+    
+    try {
+      const response = await fetch(`${gowaUrl}/instance/connect`, {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`${process.env.GOWA_USERNAME}:${process.env.GOWA_PASSWORD}`).toString('base64')}`
+        }
+      });
+      res.json(await response.json());
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/whatsapp/send', authenticateToken, async (req: any, res) => {
+    const gowaUrl = process.env.GOWA_API_URL;
+    if (!gowaUrl) return res.status(503).json({ error: 'GoWA API not configured' });
+    
+    try {
+      const response = await fetch(`${gowaUrl}/message/sendText`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${Buffer.from(`${process.env.GOWA_USERNAME}:${process.env.GOWA_PASSWORD}`).toString('base64')}`
+        },
+        body: JSON.stringify({
+          number: req.body.phone,
+          text: req.body.message
+        })
+      });
+      res.json(await response.json());
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
   if (!IS_PROD) {
     const vite = await createViteServer({
       server: { middlewareMode: true },

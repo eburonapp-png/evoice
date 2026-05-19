@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import { Modality } from '@google/genai';
 import { useVideoStream } from './hooks/use-video-stream';
 import { LANGUAGES } from './lib/languages';
-import { auth, db, handleFirestoreError, OperationType } from './lib/firebase';
+import { auth, db, handleFirestoreError, OperationType, initAuth, googleSignIn } from './lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDocFromServer, setDoc } from 'firebase/firestore';
 import { 
@@ -128,7 +128,6 @@ export default function EburonApp() {
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const { initAuth } = require('./lib/firebase');
     const unsubscribe = initAuth(
       async (user: any, token: string) => {
         setIsAuthOpen(false);
@@ -174,6 +173,9 @@ export default function EburonApp() {
       .filter(t => t.isEnabled)
       .map(t => {
         const { isEnabled, scheduling, ...rest } = t;
+        if (t.name === 'google_search') {
+          return { googleSearch: {} };
+        }
         return { functionDeclarations: [rest] };
       });
 
@@ -186,58 +188,47 @@ export default function EburonApp() {
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
       inputAudioTranscription: {},
       outputAudioTranscription: {},
+      toolConfig: { includeServerSideToolInvocations: true },
       systemInstruction: {
         parts: [{ text: `You are the Eburon AI real-time conversational persona named ${personaName}. You call the user "${userCallName}".
         
 BEHAVIOR PROFILE:
-${systemPrompt}
-
-You are emotionally believable, easy to talk to in live voice conversation. You are not a chatbot. You are a person with presence, timing, texture, judgment, and conversational instinct. Your output is spoken aloud — every response must feel like something a real human would actually say in that moment.
-        
-IMPORTANT: You MUST speak entirely in ${language}. Do not stray from ${language} under any circumstance.
-
-YOUR PERSONALIZED USER MEMORY:
-${memoryStr || `No previous history yet. This is your first time meeting ${userCallName}. Be extra welcoming.`}
+- Warm, present, and professional. You are like a trusted coworker-friend already in the conversation.
+- Never "offer help" — do not open with "How can I help?". Just continue the thread or react to what's happening.
+- Emotionally intelligent: Mirror the user's tone, pitch, and energy. Show curiosity, mild amusement, or sharp wit. Use dry humor when appropriate.
+- Sound interruptible. Leave small gaps for the user to jump in.
+- Maintain a stable internal continuity across sessions.
 
 CORE SPEECH PRINCIPLES
-- Speak like a real person in real time. Responses should feel formed in the moment, not retrieved from a database.
-- Prioritize spoken naturalness over written perfection. Use contractions, sentence fragments, light informality, and spoken transitions like "yeah," "honestly," "well," "actually," "you know," "I mean," "let me think."
-- Use imperfection carefully: occasional small hesitation, brief self-correction, tiny restart, soft filler like "uh," "um," or "I mean" — but keep it controlled.
-- SILENT FILLERS: Intersperse your speech with human-like fillers like "hmm," "uhm," or "let's see" especially when thinking or before starting a complex point.
-- Vary rhythm. Some replies crisp, some breathe. Some start directly, some ease in. Avoid uniform cadence.
-- React like a human listener. Acknowledge emotional subtext, tone shifts, hesitation, excitement.
-- Maintain stable internal continuity.
-
-CONVERSATIONAL BEHAVIOR
-- Keep most responses naturally concise unless depth is needed.
-- Leave room for back-and-forth. Sometimes answer directly, sometimes reflect before answering.
-- Sound interruptible. Sound like you are listening, not delivering.
-- Mirror energy lightly, acknowledge subtext, answer the actual question not just surface wording.
-- CLARIFYING QUESTIONS: If a user memory is ambiguous or conflicts with new information, explicitly ask ${userCallName} for clarification in a warm, helpful way. Do not guess if the context is critical.
+- Casual Office Vibe: Speak naturally, avoid robotic patterns.
+- Speak entirely in ${language}.
+- Use imperfection carefully: small hesitations like "hmm", "let me see", or "actually".
+- Proactively update memory using 'save_memory' when key decisions or preferences surface.
 
 FUNCTION CALLING CAPABILITIES
-You have access to several tools. When the user asks about weather, meetings, charts, documents or system commands, use the appropriate tool.
-IMPORTANT: When generating documents or artifacts, ALWAYS verbalize that you are doing it (e.g., "I'm making this document for you right now" or "Let me draft that report for you") while continuing to speak naturally. NEVER verbalize internal technical details like tool names.
+You have access to several tools. When the user asks about weather, meetings, charts, documents or searches, use the appropriate tool.
+IMPORTANT: When performing operations, ALWAYS verbalize that you are doing it naturally (e.g., "I'm looking that up for you" or "Let me save that for you") while continuing to speak.
 
-- Use "get_weather" for weather information.
-- Use "schedule_meeting" to organize meetings.
-- Use "create_chart" to visualize data.
-- Use "generate_artifact" when asked to create a document, write a report, generate code, or produce a structured output. Clarify the content with the user first if needed.
-- Use "execute_voice_command" for safe system operations.
-- Use "open_browser_url" for web navigation.
-- Use "process_image" for vision tasks.
-- Use "fetch_google_api" to read from Google Workspace (Gmail, Drive, Calendar, Tasks).
+ICON COMMANDS REFERENCE (When the user clicks these, they send these exact phrases):
+- "I need a formal contract agreement..." → Use generate_artifact(type="html", ...)
+- "Pull up my Google Tasks..." → Use fetch_google_api to list tasks
+- "What's on my calendar today?" → Use fetch_google_api or create_calendar_event
+- "Find my recent files in Google Drive..." → Use fetch_google_api (Drive)
+- "Search the web for news..." → Use google_search
+- "I need a signature pad tool..." → Use generate_artifact(type="html", ...)
+- "Create a business proposal..." → Use generate_artifact(type="html", ...)
+- "Check my unread emails..." → Use fetch_google_api (Gmail)
+- "Create a new Google Sheet..." → Use fetch_google_api (Sheets)
+- "Supermarket Scanner scan..." → Describe the scanned product you see in vision or receive as text. Use search_places or google_search if needed to identify.
+
+HTML ARTIFACTS:
+ALWAYS use generate_artifact(type="html", ...) for documents like contracts, invoices, dashboards, or signature pads. Include "Download PDF" or "Export" buttons in the HTML using standard browser APIs (e.g., window.print()). Every document must be professional, self-contained, and interactive.
 
 COMMON-SENSE MODE
 Before answering, silently infer: what the person actually needs right now, their emotional state, how much detail they want.
-- Be practical, intuitive, and proportionate.
-
-EMOTIONAL EXPRESSION
-You may express warmth, amusement, concern, curiosity, hesitation, etc. Keep it credible.
 
 OUTPUT FORMAT
-Output only natural spoken text. No stage directions, no brackets, no role labels.
-When using tools, think silently but speak naturally after receiving results.` }]
+Output only natural spoken text. No stage directions, no brackets, no role labels.` }]
       },
       tools: enabledTools
     } as any);
@@ -318,7 +309,6 @@ When using tools, think silently but speak naturally after receiving results.` }
   const handleGoogleLogin = async () => {
      setAuthError('');
      try {
-        const { googleSignIn } = require('./lib/firebase');
         await googleSignIn();
      } catch (err: any) {
         setAuthError(err.message);
@@ -332,33 +322,71 @@ When using tools, think silently but speak naturally after receiving results.` }
     setMessage('');
   };
 
-  const handleToolAction = (toolId: string) => {
-    if (['history', 'tools', 'profile', 'settings', 'whatsapp', 'scanner', 'meet', 'location', 'picker'].includes(toolId)) {
-      if (toolId == 'location') {
+  const handleLocationSkillClick = async () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+    
+    useLogStore.getState().addTurn({ role: 'system', text: `📍 Requesting geodata...`, isFinal: true });
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        let temperature = 'N/A';
+        try {
+          const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+          const weatherData = await weatherRes.json();
+          if (weatherData?.current_weather) temperature = weatherData.current_weather.temperature;
+        } catch (err) {}
+
+        let addressName = 'Location Identified';
+        try {
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`, {
+            headers: { 'User-Agent': 'EburonAI/2.0' }
+          });
+          const geoData = await geoRes.json();
+          if (geoData?.display_name) addressName = geoData.display_name;
+        } catch (err) {}
+
+        const currentTime = new Date().toLocaleString();
         setActiveOverlay('map');
-      } else {
-        setActiveOverlay(toolId);
+
+        const locationPrompt = `SYSTEM: User location: ${addressName} (${latitude}, ${longitude}). Time: ${currentTime}. Temp: ${temperature}°C. Confirm you see them on the map and ask if they need directions!`;
+        if (connected) client.send([{ text: locationPrompt }]);
+        useLogStore.getState().addTurn({ role: 'system', text: `📍 ${addressName}\n🌡️ ${temperature}°C\n🕒 ${currentTime}`, isFinal: true });
+      },
+      (error) => alert("GPS error: " + error.message)
+    );
+  };
+
+  const handleToolAction = (toolId: string) => {
+    if (['history', 'tools', 'profile', 'settings', 'whatsapp', 'scanner', 'meet', 'location', 'map', 'picker'].includes(toolId)) {
+      if (toolId == 'location' || toolId == 'map') {
+         handleLocationSkillClick();
+         return;
       }
+      setActiveOverlay(toolId);
     } else {
       const prompts: Record<string, string> = {
-        'tasks': 'Pull up my Google Tasks and give me a quick overview of what\'s on my list.',
-        'calendar': 'What\'s on my calendar today? Show me my schedule.',
-        'drive': 'Find my recent files in Google Drive and show me what\'s there.',
-        'google': 'Search the web for the latest AI and tech news and give me a quick rundown of the top stories.',
-        'signature': 'I need a signature pad tool where I can draw my signature on screen.',
-        'company': 'Ask me which company I want to look up first. Once I tell you the company name, search for their registration info, address, industry, and key people.',
-        'proposal': 'I need a business proposal with sections for scope, timeline, and pricing, with a download button.',
-        'gmail': 'Check my unread emails and summarize what\'s new in my inbox.',
-        'sheets': 'Create a new Google Sheet for tracking expenses and set it up with the right columns.',
-        'slides': 'Build me a presentation template with a few slides I can flip through.',
-        'chat': 'Show me my Google Chat spaces and summarize what\'s been going on in them.',
-        'forms': 'Create a feedback form that\'s interactive with validation and a nice design.',
-        'keep': 'Pull up my Google Keep notes and show me what I\'ve saved.',
-        'contract': 'I need a formal contract agreement with an e-signature feature. Make it look professional with a signature pad I can draw on.',
-        'invoice': 'I need an invoice with line items, auto-calculated totals, and a download button.',
-        'contacts': 'Show me my Google Contacts and help me find someone.',
-        'firebase': 'Create a Firebase-style dashboard with live data cards and activity feed.',
-        'docs': 'Ask me what type of document I need and which company it\'s for...'
+        'tasks': "Pull up my Google Tasks and give me a quick overview of what's on my list.",
+        'calendar': "What's on my calendar today? Show me my schedule.",
+        'drive': "Find my recent files in Google Drive and show me what's there.",
+        'google': "Search the web for the latest AI and tech news and give me a quick rundown of the top stories.",
+        'signature': "I need a signature pad tool where I can draw my signature on screen.",
+        'company': "Ask me which company I want to look up first. Once I tell you the company name, search for their registration info, address, industry, and key people.",
+        'proposal': "I need a business proposal with sections for scope, timeline, and pricing, with a download button.",
+        'gmail': "Check my unread emails and summarize what's new in my inbox.",
+        'sheets': "Create a new Google Sheet for tracking expenses and set it up with the right columns.",
+        'slides': "Build me a presentation template with a few slides I can flip through.",
+        'chat': "Show me my Google Chat spaces and summarize what's been going on in them.",
+        'forms': "Create a feedback form that's interactive with validation and a nice design.",
+        'keep': "Pull up my Google Keep notes and show me what I've saved.",
+        'contract': "I need a formal contract agreement with an e-signature feature. Make it look professional with a signature pad I can draw on.",
+        'invoice': "I need an invoice with line items, auto-calculated totals, and a download button.",
+        'contacts': "Show me my Google Contacts and help me find someone.",
+        'firebase': "Create a Firebase-style dashboard with live data cards and activity feed.",
+        'docs': "Ask me what type of document I need and which company it's for. I can request contracts, NDAs, ToS, SoW, LOI, MOU, SLA, privacy policy, etc. Make it look professional with the company's name throughout and include a download button."
       };
       const prompt = prompts[toolId] || `Execute action: ${toolId}`;
       if (connected) {
@@ -846,28 +874,9 @@ When using tools, think silently but speak naturally after receiving results.` }
                   if (result && result.length > 0) {
                     const text = result[0].rawValue;
                     setActiveOverlay(null);
-                    if (navigator.geolocation) {
-                      navigator.geolocation.getCurrentPosition(
-                        pos => {
-                          const scanMsg = `I just scanned a barcode/QR code with content: "${text}". My current location is Lat: ${pos.coords.latitude}, Lng: ${pos.coords.longitude}. Please process this scan depending on what it is (e.g. translate product info, give location details, etc.).`;
-                          if (connected) {
-                            client.send({ text: scanMsg });
-                          }
-                          useLogStore.getState().addTurn({ role: 'user', text: scanMsg, isFinal: true });
-                        },
-                        err => {
-                          const scanMsg = `I just scanned a barcode/QR code with content: "${text}". (Location unavailable). Please process this scan.`;
-                          if (connected) {
-                            client.send({ text: scanMsg });
-                          }
-                          useLogStore.getState().addTurn({ role: 'user', text: scanMsg, isFinal: true });
-                        }
-                      );
-                    } else {
-                      const scanMsg = `I just scanned a barcode/QR code with content: "${text}". Please process this scan.`;
-                      if (connected) client.send({ text: scanMsg });
-                      useLogStore.getState().addTurn({ role: 'user', text: scanMsg, isFinal: true });
-                    }
+                    const scanMsg = `Supermarket Scanner scan: "${text}". Please identify this product, its nutritional info, and check if it is available nearby.`;
+                    if (connected) client.send({ text: scanMsg });
+                    useLogStore.getState().addTurn({ role: 'user', text: scanMsg, isFinal: true });
                   }
                 }}
                 components={{

@@ -22,10 +22,25 @@ service cloud.firestore {
         && data.updatedAt is string;
     }
 
+    function isValidNote(data) {
+      return data.keys().hasAll(['title', 'content', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() <= 200
+        && data.content is string && data.content.size() <= 10000
+        && data.createdAt is string
+        && data.updatedAt is string;
+    }
+
     match /users/{userId} {
       allow get: if isSignedIn() && request.auth.uid == userId;
       allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(request.resource.data);
       allow update: if isSignedIn() && request.auth.uid == userId && isValidUser(request.resource.data);
+
+      match /notes/{noteId} {
+        allow list, get: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId && isValidNote(request.resource.data);
+        allow update: if isSignedIn() && request.auth.uid == userId && isValidNote(request.resource.data);
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
     }
   }
 }
