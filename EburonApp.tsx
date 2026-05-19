@@ -86,6 +86,7 @@ export default function EburonApp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [role, setRole] = useState('user');
   const [authError, setAuthError] = useState('');
   
   const { client, connect, disconnect, connected, volume, setConfig } = useLiveAPIContext();
@@ -297,7 +298,13 @@ Output only natural spoken text. No stage directions, no brackets, no role label
     setAuthError('');
     try {
       if (isSignupMode) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, 'users', userCredential.user.uid), {
+          email: email,
+          displayName: name,
+          role: role,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -318,6 +325,7 @@ Output only natural spoken text. No stage directions, no brackets, no role label
           displayName: user.displayName,
           photoURL: user.photoURL,
           accessToken: accessToken,
+          role: 'user',
           updatedAt: new Date().toISOString()
         }, { merge: true });
       }
@@ -1026,10 +1034,20 @@ Output only natural spoken text. No stage directions, no brackets, no role label
           <form className="auth-form" onSubmit={handleEmailAuth}>
             {authError && <div style={{color:'red', marginBottom:'10px', fontSize:'14px'}}>{authError}</div>}
             {isSignupMode && (
-               <div className="auth-input-wrapper">
-                 <User size={20} className="auth-icon-left" />
-                 <input type="text" placeholder="Full name" value={name} onChange={e => setName(e.target.value)} />
-               </div>
+               <>
+                 <div className="auth-input-wrapper">
+                   <User size={20} className="auth-icon-left" />
+                   <input type="text" placeholder="Full name" value={name} onChange={e => setName(e.target.value)} />
+                 </div>
+                 <div className="auth-input-wrapper" style={{ justifyContent: 'space-around', padding: '10px 0', border: 'none' }}>
+                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                     <input type="radio" value="user" checked={role === 'user'} onChange={() => setRole('user')} /> User
+                   </label>
+                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                     <input type="radio" value="admin" checked={role === 'admin'} onChange={() => setRole('admin')} /> Admin
+                   </label>
+                 </div>
+               </>
             )}
             <div className="auth-input-wrapper">
               <Mail size={20} className="auth-icon-left" />

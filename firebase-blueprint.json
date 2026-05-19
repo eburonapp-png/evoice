@@ -9,6 +9,10 @@
           "type": "array",
           "description": "List of memories for the user"
         },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "user"]
+        },
         "updatedAt": {
           "type": "string",
           "format": "date-time"
