@@ -110,7 +110,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static(DIST_PATH));
-    app.get('*', (req, res) => {
+    app.get('*all', (req, res) => {
       res.sendFile(path.join(DIST_PATH, 'index.html'));
     });
   }
