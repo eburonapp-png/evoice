@@ -484,13 +484,28 @@ When using tools, think silently but speak naturally after receiving results.` }
         </div>
         <nav className="nav-controls">
           <button className="nav-item" onClick={() => setMicState(!micState)} style={{ color: micState ? 'var(--accent-active)' : 'var(--text-muted)' }}>
-             <div className="icon-wrapper">
+             <div className="icon-wrapper" style={{ position: 'relative', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+               {micState && clientVolume > 0.01 ? (
+                 <div style={{ display: 'flex', gap: '2px', alignItems: 'center', height: '24px', justifyContent: 'center' }}>
+                    <div style={{ width: '3px', height: `${Math.max(4, clientVolume * 20)}px`, backgroundColor: clientVolume > 0.6 ? '#ef4444' : clientVolume > 0.3 ? '#f59e0b' : 'var(--accent-active)', borderRadius: '2px', transition: 'height 0.05s ease, background-color 0.1s ease' }} />
+                    <div style={{ width: '3px', height: `${Math.max(6, clientVolume * 35)}px`, backgroundColor: clientVolume > 0.6 ? '#ef4444' : clientVolume > 0.3 ? '#f59e0b' : 'var(--accent-active)', borderRadius: '2px', transition: 'height 0.05s ease, background-color 0.1s ease' }} />
+                    <div style={{ width: '3px', height: `${Math.max(8, clientVolume * 50)}px`, backgroundColor: clientVolume > 0.6 ? '#ef4444' : clientVolume > 0.3 ? '#f59e0b' : 'var(--accent-active)', borderRadius: '2px', transition: 'height 0.05s ease, background-color 0.1s ease' }} />
+                    <div style={{ width: '3px', height: `${Math.max(6, clientVolume * 35)}px`, backgroundColor: clientVolume > 0.6 ? '#ef4444' : clientVolume > 0.3 ? '#f59e0b' : 'var(--accent-active)', borderRadius: '2px', transition: 'height 0.05s ease, background-color 0.1s ease' }} />
+                    <div style={{ width: '3px', height: `${Math.max(4, clientVolume * 20)}px`, backgroundColor: clientVolume > 0.6 ? '#ef4444' : clientVolume > 0.3 ? '#f59e0b' : 'var(--accent-active)', borderRadius: '2px', transition: 'height 0.05s ease, background-color 0.1s ease' }} />
+                 </div>
+               ) : (
+                 <Mic size={20} fill={micState ? 'currentColor' : 'none'} />
+               )}
                <div className="icon-pulse" style={{ 
+                 position: 'absolute',
                  width: micState ? `${20 + clientVolume * 40}px` : '0px', 
                  height: micState ? `${20 + clientVolume * 40}px` : '0px',
-                 opacity: micState && clientVolume > 0.01 ? 0.3 : 0
+                 opacity: micState && clientVolume > 0.01 ? 0.2 : 0,
+                 backgroundColor: clientVolume > 0.6 ? '#ef4444' : clientVolume > 0.3 ? '#f59e0b' : 'var(--accent-active)',
+                 borderRadius: '50%',
+                 zIndex: -1,
+                 transition: 'width 0.05s ease, height 0.05s ease'
                }}></div>
-               <Mic size={20} fill={micState ? 'currentColor' : 'none'} />
              </div>
              <span>Mic</span>
           </button>
@@ -819,7 +834,16 @@ When using tools, think silently but speak naturally after receiving results.` }
             </select>
           </div>
           <button className="primary-btn" style={{ width: '100%', maxWidth: '400px', marginTop: '16px' }} onClick={() => {
-            if (activeOverlay === 'scanner') setActiveOverlay(null);
+            if (activeOverlay === 'scanner') {
+              setActiveOverlay(null);
+              if (connected) {
+                const scanMsg = 'I just scanned a barcode. The product is a "Coca-Cola 330ml Can". Please translate its description to the selected language.';
+                client.send({ text: scanMsg });
+                useLogStore.getState().addTurn({ role: 'user', text: scanMsg, isFinal: true });
+              } else {
+                useLogStore.getState().addTurn({ role: 'user', text: 'Simulated scanning a product, but Beatrice is disconnected.', isFinal: true });
+              }
+            }
           }}>Simulate Scan</button>
         </div>
       </div>
