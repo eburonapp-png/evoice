@@ -19,8 +19,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GenAILiveClient } from '../../lib/genai-live-client';
-import { LiveConnectConfig, Modality, LiveServerToolCall } from '@google/genai';
+import { GenAILiveClient, StreamingLog } from '../../lib/genai-live-client';
+import { LiveConnectConfig, Modality, LiveServerToolCall, LiveServerContent, LiveServerMessage } from '@google/genai';
 import { AudioStreamer } from '../../lib/audio-streamer';
 import { audioContext } from '../../lib/utils';
 import VolMeterWorket from '../../lib/worklets/vol-meter';

@@ -59,7 +59,6 @@ export default function EburonApp() {
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    testConnection();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
        if (user) {
           setIsAuthOpen(false);
@@ -252,6 +251,8 @@ When using tools, think silently but speak naturally after receiving results.` }
      provider.addScope('https://www.googleapis.com/auth/gmail.modify');
      provider.addScope('https://www.googleapis.com/auth/drive');
      provider.addScope('https://www.googleapis.com/auth/tasks');
+     provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+     provider.addScope('https://www.googleapis.com/auth/userinfo.email');
      try {
         const result = await signInWithPopup(auth, provider);
         const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -506,14 +507,24 @@ When using tools, think silently but speak naturally after receiving results.` }
         </div>
         <div className="overlay-content">
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <img src="https://ui-avatars.com/api/?name=Boss&background=cbfb45&color=000&size=100" style={{ borderRadius: '50%', marginBottom: '12px' }} alt="Profile" />
-            <h2 style={{ fontSize: '20px' }}>Chief Executive</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>admin@eburon.ai</p>
+            <img 
+              src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userCallName)}&background=cbfb45&color=000&size=100`} 
+              style={{ borderRadius: '50%', marginBottom: '12px' }} 
+              alt="Profile" 
+            />
+            <h2 style={{ fontSize: '20px' }}>{userCallName}</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>{auth.currentUser?.email || 'guest@eburon.ai'}</p>
           </div>
           
           <div className="form-group">
-            <label>Persona Background</label>
-            <textarea className="form-input" rows={5} placeholder="Tell Beatrice about your business context, communication style..."></textarea>
+            <label>Persona Background / Behavior</label>
+            <textarea 
+              className="form-input" 
+              rows={5} 
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder="Tell Beatrice about your business context, communication style, reactive behavior..."
+            ></textarea>
           </div>
 
           <div className="form-group" style={{ marginTop: '24px' }}>
