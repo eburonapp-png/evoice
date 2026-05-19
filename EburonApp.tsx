@@ -307,12 +307,23 @@ Output only natural spoken text. No stage directions, no brackets, no role label
   };
 
   const handleGoogleLogin = async () => {
-     setAuthError('');
-     try {
-        await googleSignIn();
-     } catch (err: any) {
-        setAuthError(err.message);
-     }
+    setAuthError('');
+    try {
+      const authResult = await googleSignIn();
+      if (authResult) {
+        const { user, accessToken } = authResult;
+        // Save user profile and token to FireStore
+        await setDoc(doc(db, 'users', user.uid), {
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          accessToken: accessToken,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      }
+    } catch (err: any) {
+      setAuthError(err.message);
+    }
   };
 
   const handleSend = () => {
