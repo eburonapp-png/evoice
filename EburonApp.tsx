@@ -10,6 +10,29 @@ import { auth, db, testConnection, handleFirestoreError, OperationType } from '.
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDocFromServer, setDoc } from 'firebase/firestore';
 
+function StreamingText({ text, isFinal }: { text: string; isFinal: boolean }) {
+  const [displayedText, setDisplayedText] = useState(isFinal ? text : "");
+  
+  useEffect(() => {
+    if (isFinal) {
+      setDisplayedText(text);
+      return;
+    }
+
+    const words = text.split(" ");
+    const currentWords = displayedText.split(" ").filter(Boolean);
+    
+    if (currentWords.length < words.length) {
+      const timeout = setTimeout(() => {
+        setDisplayedText(words.slice(0, currentWords.length + 1).join(" "));
+      }, 70);
+      return () => clearTimeout(timeout);
+    }
+  }, [text, isFinal, displayedText]);
+
+  return <span>{displayedText}</span>;
+}
+
 export default function EburonApp() {
   const [isAuthOpen, setIsAuthOpen] = useState(true);
   const [isSignupMode, setIsSignupMode] = useState(false);
@@ -329,6 +352,8 @@ When using tools, think silently but speak naturally after receiving results.` }
     }
   };
 
+  const filteredTurns = turns.filter(turn => turn.role !== 'system');
+
   return (
     <div id="app" className="app-container">
       {/* Header */}
@@ -394,9 +419,13 @@ When using tools, think silently but speak naturally after receiving results.` }
       <main id="text-streaming-area" ref={chatAreaRef}>
         <div id="conversation-container">
           <div className="conversation-message ai">Hey Boss! I'm Beatrice. Connect your session!</div>
-          {turns.filter(turn => turn.role !== 'system').map((turn, i) => (
+          {filteredTurns.map((turn, i) => (
              <div key={i} className={`conversation-message ${turn.role === 'user' ? 'user' : 'ai'}`}>
-                {turn.text}
+                {turn.role === 'agent' ? (
+                  <StreamingText text={turn.text} isFinal={turn.isFinal} />
+                ) : (
+                  turn.text
+                )}
              </div>
           ))}
         </div>
