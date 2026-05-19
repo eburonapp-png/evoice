@@ -16,6 +16,7 @@ import {
   FileStack, Paperclip, Send, Mic, Cast, X, Check, Save, RotateCcw,
   Plug, Lock, Pencil
 } from 'lucide-react';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 function StreamingText({ text, isFinal }: { text: string; isFinal: boolean }) {
   const [displayedText, setDisplayedText] = useState(isFinal ? text : "");
@@ -38,6 +39,43 @@ function StreamingText({ text, isFinal }: { text: string; isFinal: boolean }) {
   }, [text, isFinal, displayedText]);
 
   return <span>{displayedText}</span>;
+}
+
+function LocationMap({ active }: { active: boolean }) {
+  const [loc, setLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (active && !loc && !error) {
+       navigator.geolocation.getCurrentPosition(
+         pos => setLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+         err => setError('Unable to retrieve location.')
+       );
+    }
+  }, [active, loc, error]);
+
+  if (error) {
+    return <div style={{ padding: 20 }}>{error}</div>;
+  }
+
+  if (!loc) {
+    return <div style={{ padding: 20, textAlign: 'center' }}>Locating...</div>;
+  }
+
+  // Delta for embed bbox
+  const delta = 0.05;
+  const bbox = `${loc.lng - delta},${loc.lat - delta},${loc.lng + delta},${loc.lat + delta}`;
+  const iframeSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${loc.lat},${loc.lng}`;
+
+  return (
+    <>
+      <iframe width="100%" height="100%" style={{ border: 0 }} loading="lazy" allowFullScreen src={iframeSrc}></iframe>
+      <div style={{ position: 'absolute', bottom: '20px', left: '20px', right: '20px', backgroundColor: 'var(--surface-color)', padding: '16px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', border: '1px solid var(--border-color)' }}>
+         <div style={{ fontWeight: 600, fontSize: 16 }}>Location Context</div>
+         <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Lat: {loc.lat.toFixed(4)}, Lng: {loc.lng.toFixed(4)}</div>
+      </div>
+    </>
+  );
 }
 
 export default function EburonApp() {
@@ -811,17 +849,45 @@ When using tools, think silently but speak naturally after receiving results.` }
         <div className="overlay-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', padding: '20px' }}>
           <div style={{ width: '100%', maxWidth: '400px', aspectRatio: '3/4', backgroundColor: '#000', borderRadius: '16px', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {activeOverlay === 'scanner' ? (
-              <video autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} ref={video => {
-                if (video && !video.srcObject) {
-                  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-                    .then(stream => { video.srcObject = stream; })
-                    .catch(err => console.error("Camera error:", err));
-                }
-              }} />
+              <Scanner
+                onScan={(result) => {
+                  if (result && result.length > 0) {
+                    const text = result[0].rawValue;
+                    setActiveOverlay(null);
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        pos => {
+                          const scanMsg = `I just scanned a barcode/QR code with content: "${text}". My current location is Lat: ${pos.coords.latitude}, Lng: ${pos.coords.longitude}. Please process this scan depending on what it is (e.g. translate product info, give location details, etc.).`;
+                          if (connected) {
+                            client.send({ text: scanMsg });
+                          }
+                          useLogStore.getState().addTurn({ role: 'user', text: scanMsg, isFinal: true });
+                        },
+                        err => {
+                          const scanMsg = `I just scanned a barcode/QR code with content: "${text}". (Location unavailable). Please process this scan.`;
+                          if (connected) {
+                            client.send({ text: scanMsg });
+                          }
+                          useLogStore.getState().addTurn({ role: 'user', text: scanMsg, isFinal: true });
+                        }
+                      );
+                    } else {
+                      const scanMsg = `I just scanned a barcode/QR code with content: "${text}". Please process this scan.`;
+                      if (connected) client.send({ text: scanMsg });
+                      useLogStore.getState().addTurn({ role: 'user', text: scanMsg, isFinal: true });
+                    }
+                  }
+                }}
+                components={{
+                  tracker: true,
+                  audio: false,
+                  finder: true,
+                }}
+                styles={{
+                  container: { width: '100%', height: '100%', objectFit: 'cover' }
+                }}
+              />
             ) : <Video size={48} color="#444" />}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, border: '4px solid rgba(255,255,255,0.2)', pointerEvents: 'none' }}>
-               <div style={{ position: 'absolute', top: '20%', left: '10%', right: '10%', bottom: '20%', border: '2px solid #2563eb', borderRadius: '8px', boxShadow: '0 0 0 4000px rgba(0,0,0,0.5)' }}></div>
-            </div>
           </div>
           <div className="form-group" style={{ width: '100%', maxWidth: '400px', marginTop: '24px' }}>
             <label>Translate to</label>
@@ -833,18 +899,6 @@ When using tools, think silently but speak naturally after receiving results.` }
               <option value="es">Spanish</option>
             </select>
           </div>
-          <button className="primary-btn" style={{ width: '100%', maxWidth: '400px', marginTop: '16px' }} onClick={() => {
-            if (activeOverlay === 'scanner') {
-              setActiveOverlay(null);
-              if (connected) {
-                const scanMsg = 'I just scanned a barcode. The product is a "Coca-Cola 330ml Can". Please translate its description to the selected language.';
-                client.send({ text: scanMsg });
-                useLogStore.getState().addTurn({ role: 'user', text: scanMsg, isFinal: true });
-              } else {
-                useLogStore.getState().addTurn({ role: 'user', text: 'Simulated scanning a product, but Beatrice is disconnected.', isFinal: true });
-              }
-            }
-          }}>Simulate Scan</button>
         </div>
       </div>
 
@@ -855,20 +909,8 @@ When using tools, think silently but speak naturally after receiving results.` }
           <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={18} /></button>
         </div>
         <div className="overlay-content" style={{ height: '100%', padding: '0', position: 'relative' }}>
-         <iframe 
-           width="100%" 
-           height="100%" 
-           style={{ border: 0 }}
-           loading="lazy"
-           allowFullScreen 
-           src="https://www.openstreetmap.org/export/embed.html?bbox=3.61,50.95,3.81,51.15&layer=mapnik&marker=51.05,3.71"
-         ></iframe>
-         <div style={{ position: 'absolute', bottom: '20px', left: '20px', right: '20px', backgroundColor: 'var(--surface-color)', padding: '16px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontWeight: 600, fontSize: 16 }}>Location Context</div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Lat: 51.0543, Lng: 3.7174 (Ghent, Belgium)</div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Weather: 18°C, Partly Cloudy</div>
-         </div>
-       </div>
+          <LocationMap active={activeOverlay === 'map'} />
+        </div>
       </div>
 
       {/* Meet Overlay */}
