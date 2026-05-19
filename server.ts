@@ -15,17 +15,26 @@ const __dirname = path.dirname(__filename);
 const IS_PROD = process.env.NODE_ENV === 'production';
 const DIST_PATH = path.join(process.cwd(), 'dist');
 
-// Initialize Firebase Admin
-const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
-if (projectId) {
-  try {
-    admin.initializeApp({
-      projectId: projectId,
-    });
-    console.log('Firebase Admin initialized');
-  } catch (e) {
-    console.warn('Firebase Admin initialization failed:', e);
+// Initialize Firebase Admin lazily
+let adminInitialized = false;
+function getFirebaseAdmin() {
+  if (!adminInitialized) {
+    const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+    if (projectId) {
+      try {
+        admin.initializeApp({
+          projectId: projectId,
+        });
+        adminInitialized = true;
+        console.log('Firebase Admin initialized');
+      } catch (e) {
+        console.warn('Firebase Admin initialization failed:', e);
+      }
+    } else {
+      console.warn('FIREBASE_PROJECT_ID not set, Firebase Admin not initialized');
+    }
   }
+  return admin;
 }
 
 // Initialize Supabase (Optional fallback)
@@ -47,7 +56,7 @@ async function startServer() {
     if (!token) return res.sendStatus(401);
 
     try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
+      const decodedToken = await getFirebaseAdmin().auth().verifyIdToken(token);
       req.user = decodedToken;
       next();
     } catch (error) {
