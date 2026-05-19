@@ -1,9 +1,10 @@
 {
-  "projectId": "gen-lang-client-0209042177",
-  "appId": "1:226153318770:web:fe686524c806bd9dccf5eb",
-  "apiKey": "AIzaSyAU5dXc6KBNhskfcaTVnOTGsoTrtaLF2zo",
-  "authDomain": "gen-lang-client-0209042177.firebaseapp.com",
-  "storageBucket": "gen-lang-client-0209042177.firebasestorage.app",
-  "messagingSenderId": "226153318770",
-  "measurementId": ""
+  apiKey: "AIzaSyBL4fzS6NbiGzs-1N245faFx55gFGN8Hqo",
+  authDomain: "eburon-app.firebaseapp.com",
+  databaseURL: "https://eburon-app-default-rtdb.firebaseio.com",
+  projectId: "eburon-app",
+  storageBucket: "eburon-app.firebasestorage.app",
+  messagingSenderId: "624269487594",
+  appId: "1:624269487594:web:a13bce42eaa196f52e9693",
+  measurementId: "G-MCWGL1WRCM"
 }
